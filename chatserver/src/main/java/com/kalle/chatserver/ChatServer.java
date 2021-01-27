@@ -1,0 +1,84 @@
+package com.kalle.chatserver;
+
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
+import java.net.InetSocketAddress;
+import java.security.KeyStore;
+
+import javax.net.ssl.KeyManagerFactory;
+import javax.net.ssl.SSLContext;
+import javax.net.ssl.SSLParameters;
+import javax.net.ssl.TrustManagerFactory;
+
+import com.sun.net.httpserver.HttpsConfigurator;
+import com.sun.net.httpserver.HttpsParameters;
+import com.sun.net.httpserver.HttpsServer;
+
+/*
+ ChatServer
+ */
+public class ChatServer {
+    public static void main(String[] args) throws Exception {
+        try{
+            HttpsServer server = HttpsServer.create(new InetSocketAddress(8001), 0);
+            // configuring the server to use sslContext
+            SSLContext sslContext = chatServerSSLContext(server);
+            server.setHttpsConfigurator (new HttpsConfigurator(sslContext) {
+                public void configure (HttpsParameters params) {
+                InetSocketAddress remote = params.getClientAddress();
+                SSLContext c = getSSLContext();
+                SSLParameters sslparams = c.getDefaultSSLParameters();
+                params.setSSLParameters(sslparams);
+                }
+                });
+            // http.//chatserver.com/chat
+            server.createContext("/chat", new ChatHandler());
+            server.setExecutor(null);
+            server.start();
+        } catch (FileNotFoundException e) {
+            // Certificate file not found!
+            System.out.println("Certificate not found!");
+            e.printStackTrace();
+            return;
+        } catch (Exception e) {
+            e.printStackTrace();
+            return;
+        }
+    }
+
+    private static SSLContext chatServerSSLContext(HttpsServer server) throws Exception{
+        // creating SSLContext function
+        char[] passphrase = "G8daUFSd9fhs35y4shJUh5fsnu6ubrT".toCharArray();
+        KeyStore ks = KeyStore.getInstance("JKS");
+        ks.load(new FileInputStream("keystore.jks"), passphrase);
+    
+        KeyManagerFactory kmf = KeyManagerFactory.getInstance("SunX509");
+        kmf.init(ks, passphrase);
+    
+        TrustManagerFactory tmf = TrustManagerFactory.getInstance("SunX509");
+        tmf.init(ks);
+    
+        SSLContext ssl = SSLContext.getInstance("TLS");
+        ssl.init(kmf.getKeyManagers(), tmf.getTrustManagers(), null);
+
+        server.setHttpsConfigurator (new HttpsConfigurator(ssl) {
+            public void configure (HttpsParameters params) {
+    
+            // get the remote address if needed
+            InetSocketAddress remote = params.getClientAddress();
+    
+            SSLContext c = getSSLContext();
+    
+            // get the default parameters
+            SSLParameters sslparams = c.getDefaultSSLParameters();
+    
+            params.setSSLParameters(sslparams);
+            // statement above could throw IAE if any params invalid.
+            // eg. if app has a UI and parameters supplied by a user.
+    
+            }
+        });
+    
+        return ssl;
+    }
+}

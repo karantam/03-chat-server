@@ -22,7 +22,7 @@ public class ChatServer {
         try{
             HttpsServer server = HttpsServer.create(new InetSocketAddress(8001), 0);
             // configuring the server to use sslContext
-            SSLContext sslContext = chatServerSSLContext(server);
+            SSLContext sslContext = chatServerSSLContext();
             server.setHttpsConfigurator (new HttpsConfigurator(sslContext) {
                 public void configure (HttpsParameters params) {
                 InetSocketAddress remote = params.getClientAddress();
@@ -46,7 +46,7 @@ public class ChatServer {
         }
     }
 
-    private static SSLContext chatServerSSLContext(HttpsServer server) throws Exception{
+    private static SSLContext chatServerSSLContext() throws Exception{
         // creating SSLContext function
         char[] passphrase = "G8daUFSd9fhs35y4shJUh5fsnu6ubrT".toCharArray();
         KeyStore ks = KeyStore.getInstance("JKS");
@@ -61,24 +61,6 @@ public class ChatServer {
         SSLContext ssl = SSLContext.getInstance("TLS");
         ssl.init(kmf.getKeyManagers(), tmf.getTrustManagers(), null);
 
-        server.setHttpsConfigurator (new HttpsConfigurator(ssl) {
-            public void configure (HttpsParameters params) {
-    
-            // get the remote address if needed
-            InetSocketAddress remote = params.getClientAddress();
-    
-            SSLContext c = getSSLContext();
-    
-            // get the default parameters
-            SSLParameters sslparams = c.getDefaultSSLParameters();
-    
-            params.setSSLParameters(sslparams);
-            // statement above could throw IAE if any params invalid.
-            // eg. if app has a UI and parameters supplied by a user.
-    
-            }
-        });
-    
         return ssl;
     }
 }

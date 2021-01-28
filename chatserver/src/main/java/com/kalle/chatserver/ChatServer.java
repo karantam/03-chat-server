@@ -10,6 +10,7 @@ import javax.net.ssl.SSLContext;
 import javax.net.ssl.SSLParameters;
 import javax.net.ssl.TrustManagerFactory;
 
+import com.sun.net.httpserver.HttpContext;
 import com.sun.net.httpserver.HttpsConfigurator;
 import com.sun.net.httpserver.HttpsParameters;
 import com.sun.net.httpserver.HttpsServer;
@@ -32,7 +33,10 @@ public class ChatServer {
                 }
                 });
             // http.//chatserver.com/chat
-            server.createContext("/chat", new ChatHandler());
+            ChatAuthenticator auth = new ChatAuthenticator();
+            server.createContext("/registration", new RegistrationHandler(auth));
+            HttpContext context = server.createContext("/chat", new ChatHandler());
+            context.setAuthenticator(auth);
             server.setExecutor(null);
             server.start();
         } catch (FileNotFoundException e) {
@@ -49,7 +53,7 @@ public class ChatServer {
     private static SSLContext chatServerSSLContext() throws Exception{
         // creating SSLContext function
         char[] passphrase = "G8daUFSd9fhs35y4shJUh5fsnu6ubrT".toCharArray();
-        KeyStore ks = KeyStore.getInstance("JKS");
+        KeyStore ks = KeyStore.getInstance("PKCS12");
         ks.load(new FileInputStream("keystore.jks"), passphrase);
     
         KeyManagerFactory kmf = KeyManagerFactory.getInstance("SunX509");
@@ -58,7 +62,7 @@ public class ChatServer {
         TrustManagerFactory tmf = TrustManagerFactory.getInstance("SunX509");
         tmf.init(ks);
     
-        SSLContext ssl = SSLContext.getInstance("TLS");
+        SSLContext ssl = SSLContext.getInstance("TLSv1.2");
         ssl.init(kmf.getKeyManagers(), tmf.getTrustManagers(), null);
 
         return ssl;

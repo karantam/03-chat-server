@@ -14,7 +14,7 @@ import com.sun.net.httpserver.HttpHandler;
 
 public class RegistrationHandler implements HttpHandler {
     private ChatAuthenticator auth = null;
-    //private String[] user;
+    // private String[] user;
     String errorMessage = "";
 
     public RegistrationHandler(ChatAuthenticator authpar) {
@@ -87,12 +87,12 @@ public class RegistrationHandler implements HttpHandler {
         return code;
     }
 
-    private int processUser(HttpExchange exchange, String text) throws Exception{
+    private int processUser(HttpExchange exchange, String text) throws Exception {
         int code = 200;
         // Adding the username and password to known users
         // Cheking if user input was empty
         if (text != null && !text.isBlank()) {
-            //Cheking if username and password were given in Gormat name:passwd
+            // Cheking if username and password were given in Gormat name:passwd
             if (text.contains(":")) {
                 String[] user = text.split(":", 2);
                 // Chkeing if user name or password was empty

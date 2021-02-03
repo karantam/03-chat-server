@@ -27,3 +27,8 @@ hs_err_pid*
 
 # trace-ascii text file
 *out.txt
+
+# test  json files
+*testuser.json
+*testmessage.json
+*testmessage2.json

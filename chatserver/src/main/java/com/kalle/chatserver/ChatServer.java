@@ -2,8 +2,16 @@ package com.kalle.chatserver;
 
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
+import java.io.IOException;
 import java.net.InetSocketAddress;
+import java.security.KeyManagementException;
 import java.security.KeyStore;
+import java.security.KeyStoreException;
+import java.security.NoSuchAlgorithmException;
+import java.security.UnrecoverableKeyException;
+import java.security.cert.CertificateException;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 
 import javax.net.ssl.KeyManagerFactory;
 import javax.net.ssl.SSLContext;
@@ -21,11 +29,12 @@ import com.sun.net.httpserver.HttpsServer;
 public class ChatServer {
     public static void main(String[] args) throws Exception {
         try {
-            System.out.println("Launching Chatserver...");
+            log("Launching Chatserver...");
             HttpsServer server = HttpsServer.create(new InetSocketAddress(8001), 0);
             // configuring the server to use sslContext
             SSLContext sslContext = chatServerSSLContext();
             server.setHttpsConfigurator(new HttpsConfigurator(sslContext) {
+                @Override
                 public void configure(HttpsParameters params) {
                     InetSocketAddress remote = params.getClientAddress();
                     SSLContext c = getSSLContext();
@@ -39,24 +48,23 @@ public class ChatServer {
             HttpContext context = server.createContext("/chat", new ChatHandler());
             context.setAuthenticator(auth);
             server.setExecutor(null);
-            System.out.println("Starting Chatserver!");
+            log("Starting Chatserver!");
             server.start();
         } catch (FileNotFoundException e) {
             // Certificate file not found!
-            System.out.println("Certificate not found!");
+            log("Certificate not found!");
             e.printStackTrace();
-            return;
         } catch (Exception e) {
             e.printStackTrace();
-            return;
         }
     }
 
-    private static SSLContext chatServerSSLContext() throws Exception {
+    private static SSLContext chatServerSSLContext() throws KeyStoreException, NoSuchAlgorithmException,
+            CertificateException, IOException, UnrecoverableKeyException, KeyManagementException {
         // creating SSLContext function
         char[] passphrase = "G8daUFSd9fhs35y4shJUh5fsnu6ubrT".toCharArray();
         KeyStore ks = KeyStore.getInstance("JKS");
-        ks.load(new FileInputStream("keystore.jks"), passphrase);
+        ks.load(new FileInputStream("chatserver/keystore.jks"), passphrase);
 
         KeyManagerFactory kmf = KeyManagerFactory.getInstance("SunX509");
         kmf.init(ks, passphrase);
@@ -69,5 +77,16 @@ public class ChatServer {
         ssl.init(kmf.getKeyManagers(), tmf.getTrustManagers(), null);
 
         return ssl;
+    }
+
+    // Not used yet because color dosen't work in my current terminal
+    /*
+     * public static final String ANSI_RESET = "\u0018[0m"; public static final
+     * String ANSI_GREEN = "\u0018[33m";
+     */
+
+    public static void log(String message) {
+        DateTimeFormatter logdtf = DateTimeFormatter.ofPattern("yyyy/MM/dd HH:mm:ss");
+        System.out.println(logdtf.format(LocalDateTime.now()) + " " + message);
     }
 }

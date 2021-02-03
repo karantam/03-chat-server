@@ -12,9 +12,11 @@ import com.sun.net.httpserver.Headers;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
 
+import org.json.JSONException;
+import org.json.JSONObject;
+
 public class RegistrationHandler implements HttpHandler {
     private ChatAuthenticator auth = null;
-    // private String[] user;
     String errorMessage = "";
 
     public RegistrationHandler(ChatAuthenticator authpar) {
@@ -43,8 +45,8 @@ public class RegistrationHandler implements HttpHandler {
             errorMessage = "Internal server error: " + e.getMessage();
         }
         if (code >= 400) {
-            System.out.println("Error in /registration: " + code + " " + errorMessage);
-            byte[] bytes = errorMessage.getBytes("UTF-8");
+            ChatServer.log("Error in /registration: " + code + " " + errorMessage);
+            byte[] bytes = errorMessage.getBytes(StandardCharsets.UTF_8);
             exchange.sendResponseHeaders(code, bytes.length);
             OutputStream stream = exchange.getResponseBody();
             stream.write(bytes);
@@ -53,7 +55,7 @@ public class RegistrationHandler implements HttpHandler {
 
     }
 
-    private int handleUserRegistrationFromClient(HttpExchange exchange) throws Exception {
+    private int handleUserRegistrationFromClient(HttpExchange exchange) throws NumberFormatException, IndexOutOfBoundsException, IOException {
         // Handle POST requests (client sent new username and password)
         int code = 200;
         Headers headers = exchange.getRequestHeaders();
@@ -73,7 +75,7 @@ public class RegistrationHandler implements HttpHandler {
             errorMessage = "No content type in request";
             return code;
         }
-        if (contentType.equalsIgnoreCase("text/plain")) {
+        if (contentType.equalsIgnoreCase("application/json")) {
             InputStream input = exchange.getRequestBody();
             String text = new BufferedReader(new InputStreamReader(input, StandardCharsets.UTF_8)).lines()
                     .collect(Collectors.joining("\n"));
@@ -81,41 +83,38 @@ public class RegistrationHandler implements HttpHandler {
             code = processUser(exchange, text);
         } else {
             code = 411;
-            errorMessage = "Content-Type must be text/plain";
-            System.out.println(errorMessage);
+            errorMessage = "Content-Type must be application/json";
+            ChatServer.log(errorMessage);
         }
         return code;
     }
 
-    private int processUser(HttpExchange exchange, String text) throws Exception {
+    private int processUser(HttpExchange exchange, String text) throws JSONException, IOException {
         int code = 200;
         // Adding the username and password to known users
-        // Cheking if user input was empty
-        if (text != null && !text.isBlank()) {
-            // Cheking if username and password were given in Gormat name:passwd
-            if (text.contains(":")) {
-                String[] user = text.split(":", 2);
-                // Chkeing if user name or password was empty
-                if (user[0] != null && !user[0].isBlank() && user[1] != null && !user[1].isBlank()) {
-                    Boolean adduser = auth.addUser(user[0], user[1]);
-                    if (Boolean.TRUE.equals(adduser)) {
-                        exchange.sendResponseHeaders(code, -1);
-                        System.out.println("Added as user");
-                    } else {
-                        // Sending an error message if username is already in use
-                        code = 403;
-                        errorMessage = "Invalid username or password";
-                    }
-                } else {
-                    // Sending an error message if username or password was empty or null
-                    code = 400;
-                    errorMessage = "Invalid username or password";
-                }
+        // creating a JSONObject from the user input
+        JSONObject registrationMsg = new JSONObject(text);
+        // Cheking if any of the user inputs fields was empty
+        String username = registrationMsg.getString("username");
+        String password = registrationMsg.getString("password");
+        String email = registrationMsg.getString("email");
+        if (username != null && !username.isBlank() && password != null && !password.isBlank() && email != null
+                && !email.isBlank()) {
+            // Cheking if username and password were given in Format name:passwd
+            User user = new User(username, password, email);
+            Boolean adduser = auth.addUser(user);
+            if (Boolean.TRUE.equals(adduser)) {
+                exchange.sendResponseHeaders(code, -1);
+                ChatServer.log("Added as user");
             } else {
-                // Sending an error message if username and password were entered in wrong form
-                code = 400;
-                errorMessage = "Give username and password in form username:password";
+                // Sending an error message if username is already in use
+                code = 403;
+                errorMessage = "Invalid user credentials";
             }
+        } else {
+            // Sending an error message if username, password or email was empty or null
+            code = 400;
+            errorMessage = "Invalid user credentials";
         }
         return code;
     }

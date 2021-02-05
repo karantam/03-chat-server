@@ -64,6 +64,9 @@ public class ChatServer {
         // creating SSLContext function
         char[] passphrase = "G8daUFSd9fhs35y4shJUh5fsnu6ubrT".toCharArray();
         KeyStore ks = KeyStore.getInstance("JKS");
+        // The Jar file must be run one folder back from the root with path
+        // chatserver/target/chatserver-1.0-SNAPSHOT-jar-with-dependencies.jar so it can
+        // find the keystore.jks This way the VSCode debugger can also find the keystore.jks
         ks.load(new FileInputStream("chatserver/keystore.jks"), passphrase);
 
         KeyManagerFactory kmf = KeyManagerFactory.getInstance("SunX509");

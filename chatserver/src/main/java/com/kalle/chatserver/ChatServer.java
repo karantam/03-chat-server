@@ -82,12 +82,7 @@ public class ChatServer {
         return ssl;
     }
 
-    // Not used yet because color dosen't work in my current terminal
-    /*
-     * public static final String ANSI_RESET = "\u0018[0m"; public static final
-     * String ANSI_GREEN = "\u0018[33m";
-     */
-
+    // Print method for all server printouts
     public static void log(String message) {
         DateTimeFormatter logdtf = DateTimeFormatter.ofPattern("yyyy/MM/dd HH:mm:ss");
         System.out.println(logdtf.format(LocalDateTime.now()) + " " + message);

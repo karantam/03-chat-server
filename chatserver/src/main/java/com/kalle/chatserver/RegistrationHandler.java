@@ -6,6 +6,7 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
+import java.sql.SQLException;
 import java.util.stream.Collectors;
 
 import com.sun.net.httpserver.Headers;
@@ -55,7 +56,8 @@ public class RegistrationHandler implements HttpHandler {
 
     }
 
-    private int handleUserRegistrationFromClient(HttpExchange exchange) throws NumberFormatException, IndexOutOfBoundsException, IOException {
+    private int handleUserRegistrationFromClient(HttpExchange exchange)
+            throws NumberFormatException, IndexOutOfBoundsException, IOException, JSONException, SQLException {
         // Handle POST requests (client sent new username and password)
         int code = 200;
         Headers headers = exchange.getRequestHeaders();
@@ -89,7 +91,7 @@ public class RegistrationHandler implements HttpHandler {
         return code;
     }
 
-    private int processUser(HttpExchange exchange, String text) throws JSONException, IOException {
+    private int processUser(HttpExchange exchange, String text) throws JSONException, IOException, SQLException {
         int code = 200;
         // Adding the username and password to known users
         // creating a JSONObject from the user input

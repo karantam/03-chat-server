@@ -28,6 +28,7 @@ import com.sun.net.httpserver.HttpsServer;
  */
 public class ChatServer {
     public static void main(String[] args) throws Exception {
+        ChatDatabase database = ChatDatabase.getInstance("ChatServer.db");
         try {
             log("Launching Chatserver...");
             HttpsServer server = HttpsServer.create(new InetSocketAddress(8001), 0);

@@ -14,9 +14,10 @@ import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.Comparator;
+// import java.util.ArrayList;
+// import java.util.Collections;
+// import java.util.Comparator;
+import java.util.List;
 import java.util.stream.Collectors;
 
 import com.sun.net.httpserver.Headers;
@@ -31,7 +32,7 @@ public class ChatHandler implements HttpHandler {
 
     private String errorMessage = "";
 
-    private ArrayList<ChatMessage> messages = new ArrayList<>();
+    // private ArrayList<ChatMessage> messages = new ArrayList<>();
 
     @Override
     public void handle(HttpExchange exchange) throws IOException {
@@ -68,7 +69,7 @@ public class ChatHandler implements HttpHandler {
     }
 
     private int handleChatMessageFromClient(HttpExchange exchange) throws JSONException, NumberFormatException,
-            IndexOutOfBoundsException, IOException, DateTimeParseException {
+            IndexOutOfBoundsException, IOException, DateTimeParseException, SQLException {
         // Handle POST requests (client sent new chat message)
         int code = 200;
         Headers headers = exchange.getRequestHeaders();
@@ -121,23 +122,27 @@ public class ChatHandler implements HttpHandler {
         return code;
     }
 
-    private void processMessage(LocalDateTime sent, String user, String message) {
+    private void processMessage(LocalDateTime sent, String user, String message) throws SQLException {
         // Creating an chatmessage out of user input
         ChatMessage chatmessage = new ChatMessage(sent, user, message);
         // Adding new chatmessage to messages
-        messages.add(chatmessage);
+        ChatDatabase database = ChatDatabase.getInstance("ChatServer.db");
+        database.setMessage(chatmessage);
+        /*messages.add(chatmessage);
         Collections.sort(messages, new Comparator<ChatMessage>() {
             @Override
             public int compare(ChatMessage lhs, ChatMessage rhs) {
                 return lhs.getSent().compareTo(rhs.getSent());
             }
-        });
+        });*/
     }
 
     private int handleGetRequestFromClient(HttpExchange exchange)
             throws IOException, IllegalArgumentException, DateTimeException, JSONException, SQLException {
         // Handle GET request (client wants to see all messages)
         int code = 200;
+        ChatDatabase database = ChatDatabase.getInstance("ChatServer.db");
+        List<ChatMessage> messages = database.getMessages();
         if (messages.isEmpty()) {
             ChatServer.log("No new messages to deliver to client");
             code = 204;

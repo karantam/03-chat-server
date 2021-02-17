@@ -11,10 +11,12 @@ import java.time.DateTimeException;
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
 import java.time.ZoneId;
+import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
 import java.util.List;
+import java.util.Locale;
 import java.util.stream.Collectors;
 
 import com.sun.net.httpserver.Headers;
@@ -28,7 +30,6 @@ import org.json.JSONObject;
 public class ChatHandler implements HttpHandler {
 
     private String errorMessage = "";
-
 
     @Override
     public void handle(HttpExchange exchange) throws IOException {
@@ -130,9 +131,23 @@ public class ChatHandler implements HttpHandler {
             throws IOException, IllegalArgumentException, DateTimeException, JSONException, SQLException {
         // Handle GET request (client wants to see all messages)
         int code = 200;
+        List<ChatMessage> messages = null;
+        Headers headers = exchange.getRequestHeaders();
+        String cType = "If-Modified-Since";
+        DateTimeFormatter formatterLast = DateTimeFormatter.ofPattern("EEE, dd MMM yyyy HH:mm:ss.SSS z", Locale.ENGLISH)
+                .withZone(ZoneId.of("GMT"));
+        long messagesSince = -1;
+        // Cheking if the headers contain If-Modified-Since header
+        if (headers.containsKey(cType)) {
+            String ifModified = headers.get("If-Modified-Since").get(0);
+            ZonedDateTime zonedifModified = ZonedDateTime.parse(ifModified, formatterLast);
+            LocalDateTime fromWhichDate = zonedifModified.toLocalDateTime();
+            messagesSince = fromWhichDate.toInstant(ZoneOffset.UTC).toEpochMilli();
+        }
         ChatDatabase database = ChatDatabase.getInstance("ChatServer.db");
-        List<ChatMessage> messages = database.getMessages();
-        if (messages.isEmpty()) {
+        messages = database.getMessages(messagesSince);
+
+        if (messages == null || messages.isEmpty()) {
             ChatServer.log("No new messages to deliver to client");
             code = 204;
             exchange.sendResponseHeaders(code, -1);
@@ -140,15 +155,27 @@ public class ChatHandler implements HttpHandler {
         }
         JSONArray responseMessages = new JSONArray();
         DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss.SSSX");
+        LocalDateTime newest = null;
         for (ChatMessage chatmessage : messages) {
             JSONObject jsonmessage = new JSONObject();
             LocalDateTime date = chatmessage.getSent();
+            // Messages we get from the database should be ordered by the sending time so
+            // only getting the sent time from the last message on the list could also work
+            if (newest == null || newest.isBefore(date)) {
+                newest = date;
+            }
             ZonedDateTime toSend = ZonedDateTime.of(date, ZoneId.of("UTC"));
             String dateText = toSend.format(formatter);
             jsonmessage.put("sent", dateText);
             jsonmessage.put("user", chatmessage.getNick());
             jsonmessage.put("message", chatmessage.getMessage());
             responseMessages.put(jsonmessage);
+        }
+        if (newest != null){
+            String lastModified = newest.format(formatterLast);
+            ChatServer.log("Last-Modified: " + lastModified);
+            Headers headers2 = exchange.getResponseHeaders();
+            headers2.add("Last-Modified", lastModified);
         }
         ChatServer.log("Delivering " + messages.size() + " messages to client");
         String messagesstr = responseMessages.toString();

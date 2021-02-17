@@ -171,7 +171,7 @@ public class ChatHandler implements HttpHandler {
             jsonmessage.put("message", chatmessage.getMessage());
             responseMessages.put(jsonmessage);
         }
-        if (newest != null){
+        if (newest != null) {
             String lastModified = newest.format(formatterLast);
             ChatServer.log("Last-Modified: " + lastModified);
             Headers headers2 = exchange.getResponseHeaders();

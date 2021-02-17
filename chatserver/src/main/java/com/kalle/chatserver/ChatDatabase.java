@@ -39,8 +39,11 @@ public class ChatDatabase {
     public void open(String dbName) throws SQLException {
         File dbFile = new File(dbName);
         boolean exists = dbFile.exists();
-        String currentDirectory = System.getProperty("user.dir");
-        String path = currentDirectory + "/" + dbName;
+        // String currentDirectory = System.getProperty("user.dir");
+        // String path = currentDirectory + "/" + dbName;
+        // Changed the method of getting path to the database so there are no hardcoded
+        // parts
+        String path = dbFile.getAbsolutePath();
         String database = "jdbc:sqlite:" + path;
         dbConnection = DriverManager.getConnection(database);
         if (!exists) {

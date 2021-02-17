@@ -15,7 +15,8 @@
             "name": "Launch ChatServer",
             "request": "launch",
             "mainClass": "com.kalle.chatserver.ChatServer",
-            "projectName": "chatserver"
+            "projectName": "chatserver",
+            "args": ["chatserver/keystore.jks"]
         }
     ]
 }

@@ -8,8 +8,6 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
-import java.util.Collections;
-import java.util.Comparator;
 import java.util.List;
 
 public class ChatDatabase {
@@ -37,7 +35,7 @@ public class ChatDatabase {
         File dbFile = new File(dbName);
         boolean exists = dbFile.exists();
         String currentDirectory = System.getProperty("user.dir");
-        String path = currentDirectory +"/" + dbName;
+        String path = currentDirectory + "/" + dbName;
         String database = "jdbc:sqlite:" + path;
         dbConnection = DriverManager.getConnection(database);
         if (!exists) {
@@ -52,7 +50,6 @@ public class ChatDatabase {
             try (Statement createStatement = dbConnection.createStatement()) {
                 createStatement.executeUpdate(registrationDB);
                 createStatement.executeUpdate(chatDB);
-                // createStatement.close();
                 ChatServer.log("DB successfully created");
 
                 return true;
@@ -83,7 +80,6 @@ public class ChatDatabase {
                     + user.getPassword() + "','" + user.getEmail() + "')";
             try (Statement createStatement = dbConnection.createStatement()) {
                 createStatement.executeUpdate(setMessageString);
-                // createStatement.close();
             } catch (SQLException e) {
                 ChatServer.log("ERROR: SQLException while adding user to database");
             }
@@ -92,7 +88,8 @@ public class ChatDatabase {
     }
 
     public User getUser(String user) throws SQLException {
-        String getMessagesString = "select user, userpassword, useremail from registration where user =  \"" + user + "\"";
+        String getMessagesString = "select user, userpassword, useremail from registration where user =  \"" + user
+                + "\"";
         String username = null;
         String password = null;
         String email = null;
@@ -127,7 +124,6 @@ public class ChatDatabase {
                 + "','" + message.dateAsInt() + "')";
         try (Statement createStatement = dbConnection.createStatement()) {
             createStatement.executeUpdate(setMessageString);
-            // createStatement.close();
             return true;
         } catch (SQLException e) {
             ChatServer.log("ERROR: SQLException while adding message to database");
@@ -137,7 +133,9 @@ public class ChatDatabase {
 
     public List<ChatMessage> getMessages() throws SQLException {
         ArrayList<ChatMessage> messages = new ArrayList<>();
-        String getMessagesString = "select user, usermessage, datetime from chat";
+        // Getting all the messages and sorting them by the sending time in ascending
+        // order
+        String getMessagesString = "select user, usermessage, datetime from chat order by datetime ASC";
         String username = null;
         String message = null;
         LocalDateTime sent = null;
@@ -156,12 +154,6 @@ public class ChatDatabase {
         } catch (SQLException e) {
             ChatServer.log("ERROR: SQLException while reading messages from database");
         }
-        Collections.sort(messages, new Comparator<ChatMessage>() {
-            @Override
-            public int compare(ChatMessage lhs, ChatMessage rhs) {
-                return lhs.getSent().compareTo(rhs.getSent());
-            }
-        });
         return messages;
 
     }

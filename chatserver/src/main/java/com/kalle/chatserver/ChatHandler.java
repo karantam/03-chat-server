@@ -14,9 +14,6 @@ import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
-// import java.util.ArrayList;
-// import java.util.Collections;
-// import java.util.Comparator;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -32,7 +29,6 @@ public class ChatHandler implements HttpHandler {
 
     private String errorMessage = "";
 
-    // private ArrayList<ChatMessage> messages = new ArrayList<>();
 
     @Override
     public void handle(HttpExchange exchange) throws IOException {
@@ -128,13 +124,6 @@ public class ChatHandler implements HttpHandler {
         // Adding new chatmessage to messages
         ChatDatabase database = ChatDatabase.getInstance("ChatServer.db");
         database.setMessage(chatmessage);
-        /*messages.add(chatmessage);
-        Collections.sort(messages, new Comparator<ChatMessage>() {
-            @Override
-            public int compare(ChatMessage lhs, ChatMessage rhs) {
-                return lhs.getSent().compareTo(rhs.getSent());
-            }
-        });*/
     }
 
     private int handleGetRequestFromClient(HttpExchange exchange)

@@ -32,3 +32,6 @@ hs_err_pid*
 *testuser.json
 *testmessage.json
 *testmessage2.json
+
+# database
+*ChatServer.db

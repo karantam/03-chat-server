@@ -39,4 +39,3 @@ public class ChatMessage {
         sent = LocalDateTime.ofInstant(Instant.ofEpochMilli(epoch), ZoneOffset.UTC);
     }
 }
-

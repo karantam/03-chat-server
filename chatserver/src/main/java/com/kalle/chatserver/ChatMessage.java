@@ -4,6 +4,9 @@ import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 
+/*
+ * ChatMessage class creates a chatmessage object containing all the information about that message
+ */
 public class ChatMessage {
     private LocalDateTime sent;
     private String nick;

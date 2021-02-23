@@ -12,11 +12,15 @@
         },
         {
             "type": "java",
-            "name": "Launch ChatServer",
+            "name": "Debug ChatServer",
             "request": "launch",
             "mainClass": "com.kalle.chatserver.ChatServer",
             "projectName": "chatserver",
-            "args": ["chatserver/keystore.jks"]
+            "args": [
+                "chatserver/ChatServer.db",
+                "chatserver/keystore.jks",
+                "G8daUFSd9fhs35y4shJUh5fsnu6ubrT"
+            ]
         }
     ]
 }

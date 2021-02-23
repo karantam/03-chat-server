@@ -7,6 +7,8 @@ import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
 import java.sql.SQLException;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.stream.Collectors;
 
 import com.sun.net.httpserver.Headers;
@@ -16,9 +18,11 @@ import com.sun.net.httpserver.HttpHandler;
 import org.json.JSONException;
 import org.json.JSONObject;
 
+/*
+ * RegistrationHandler class handles user requests concerning registration
+ */
 public class RegistrationHandler implements HttpHandler {
     private ChatAuthenticator auth = null;
-    String errorMessage = "";
 
     public RegistrationHandler(ChatAuthenticator authpar) {
         auth = authpar;
@@ -26,11 +30,16 @@ public class RegistrationHandler implements HttpHandler {
 
     @Override
     public void handle(HttpExchange exchange) throws IOException {
+        List<String> status = new ArrayList<>(2);
         int code = 200;
+        String errorMessage = "";
         try {
+            ChatServer.log("Request handled in thread " + Thread.currentThread().getId());
             if (exchange.getRequestMethod().equalsIgnoreCase("POST")) {
                 // Handle POST requests in method
-                code = handleUserRegistrationFromClient(exchange);
+                status = handleUserRegistrationFromClient(exchange);
+                code = Integer.parseInt(status.get(0));
+                errorMessage = status.get(1);
             } else {
                 // Something we do not support
                 code = 400;
@@ -56,10 +65,17 @@ public class RegistrationHandler implements HttpHandler {
 
     }
 
-    private int handleUserRegistrationFromClient(HttpExchange exchange)
+    /*
+     * handleUserRegistrationFromClient methods starts processing the registration
+     * request sent by client. It checks if the data is in corect format and then if
+     * it is sends it to the processUser method
+     */
+    private List<String> handleUserRegistrationFromClient(HttpExchange exchange)
             throws NumberFormatException, IndexOutOfBoundsException, IOException, JSONException, SQLException {
         // Handle POST requests (client sent new username and password)
+        List<String> status = new ArrayList<>(2);
         int code = 200;
+        String errorMessage = "";
         Headers headers = exchange.getRequestHeaders();
         int contentLength = 0;
         String contentType = "";
@@ -68,31 +84,48 @@ public class RegistrationHandler implements HttpHandler {
             contentLength = Integer.parseInt(headers.get("Content-Length").get(0));
         } else {
             code = 411;
-            return code;
+            status.add(0, String.valueOf(code));
+            status.add(1, errorMessage);
+            return status;
         }
         if (headers.containsKey(cType)) {
             contentType = headers.get(cType).get(0);
         } else {
             code = 400;
             errorMessage = "No content type in request";
-            return code;
+            status.add(0, String.valueOf(code));
+            status.add(1, errorMessage);
+            return status;
         }
         if (contentType.equalsIgnoreCase("application/json")) {
             InputStream input = exchange.getRequestBody();
             String text = new BufferedReader(new InputStreamReader(input, StandardCharsets.UTF_8)).lines()
                     .collect(Collectors.joining("\n"));
             input.close();
-            code = processUser(exchange, text);
+            status = processUser(exchange, text);
+            code = Integer.parseInt(status.get(0));
+            errorMessage = status.get(1);
         } else {
             code = 411;
             errorMessage = "Content-Type must be application/json";
             ChatServer.log(errorMessage);
         }
-        return code;
+        status.add(0, String.valueOf(code));
+        status.add(1, errorMessage);
+        return status;
     }
 
-    private int processUser(HttpExchange exchange, String text) throws JSONException, IOException, SQLException {
+    /*
+     * processUser method checks if the given username is already in use and if it
+     * isn't turns the data given by user into a user object and saves it into the
+     * database. It also checks if the user data is empty or null before processing
+     * it.
+     */
+    private List<String> processUser(HttpExchange exchange, String text)
+            throws JSONException, IOException, SQLException {
+        List<String> status = new ArrayList<>(2);
         int code = 200;
+        String errorMessage = "";
         // Adding the username and password to known users
         // creating a JSONObject from the user input
         JSONObject registrationMsg = new JSONObject(text);
@@ -102,7 +135,6 @@ public class RegistrationHandler implements HttpHandler {
         String email = registrationMsg.getString("email");
         if (username != null && !username.isBlank() && password != null && !password.isBlank() && email != null
                 && !email.isBlank()) {
-            // Cheking if username and password were given in Format name:passwd
             User user = new User(username, password, email);
             Boolean adduser = auth.addUser(user);
             if (Boolean.TRUE.equals(adduser)) {
@@ -118,6 +150,8 @@ public class RegistrationHandler implements HttpHandler {
             code = 400;
             errorMessage = "Invalid user credentials";
         }
-        return code;
+        status.add(0, String.valueOf(code));
+        status.add(1, errorMessage);
+        return status;
     }
 }

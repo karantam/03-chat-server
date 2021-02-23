@@ -15,6 +15,7 @@ import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.stream.Collectors;
@@ -27,20 +28,28 @@ import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
+/*
+ * ChatHandler class handles user requests concerning chat messages
+ */
 public class ChatHandler implements HttpHandler {
-
-    private String errorMessage = "";
 
     @Override
     public void handle(HttpExchange exchange) throws IOException {
+        List<String> status = new ArrayList<>(2);
         int code = 200;
+        String errorMessage = "";
         try {
+            ChatServer.log("Request handled in thread " + Thread.currentThread().getId());
             if (exchange.getRequestMethod().equalsIgnoreCase("POST")) {
                 // Handle POST requests in method
-                code = handleChatMessageFromClient(exchange);
+                status = handleChatMessageFromClient(exchange);
+                code = Integer.parseInt(status.get(0));
+                errorMessage = status.get(1);
             } else if (exchange.getRequestMethod().equalsIgnoreCase("GET")) {
                 // Handle GET request in method
-                code = handleGetRequestFromClient(exchange);
+                status = handleGetRequestFromClient(exchange);
+                code = Integer.parseInt(status.get(0));
+                errorMessage = status.get(1);
             } else {
                 // Something we do not support
                 code = 400;
@@ -65,10 +74,17 @@ public class ChatHandler implements HttpHandler {
         }
     }
 
-    private int handleChatMessageFromClient(HttpExchange exchange) throws JSONException, NumberFormatException,
+    /*
+     * handleChatMessageFromClient method starts processing the message sent by
+     * client. It checks if the data is in corect format and then if it is sends it
+     * to the processmessage method
+     */
+    private List<String> handleChatMessageFromClient(HttpExchange exchange) throws JSONException, NumberFormatException,
             IndexOutOfBoundsException, IOException, DateTimeParseException, SQLException {
         // Handle POST requests (client sent new chat message)
+        List<String> status = new ArrayList<>(2);
         int code = 200;
+        String errorMessage = "";
         Headers headers = exchange.getRequestHeaders();
         int contentLength = 0;
         String contentType = "";
@@ -77,14 +93,18 @@ public class ChatHandler implements HttpHandler {
             contentLength = Integer.parseInt(headers.get("Content-Length").get(0));
         } else {
             code = 411;
-            return code;
+            status.add(0, String.valueOf(code));
+            status.add(1, errorMessage);
+            return status;
         }
         if (headers.containsKey(cType)) {
             contentType = headers.get(cType).get(0);
         } else {
             code = 400;
             errorMessage = "No content type in request";
-            return code;
+            status.add(0, String.valueOf(code));
+            status.add(1, errorMessage);
+            return status;
         }
         if (contentType.equalsIgnoreCase("application/json")) {
             InputStream input = exchange.getRequestBody();
@@ -116,21 +136,32 @@ public class ChatHandler implements HttpHandler {
             errorMessage = "Content-Type must be application/json";
             ChatServer.log(errorMessage);
         }
-        return code;
+        status.add(0, String.valueOf(code));
+        status.add(1, errorMessage);
+        return status;
     }
 
+    /*
+     * processMessage method turns the data given by user into a chatmessage object
+     * and saves it into the database
+     */
     private void processMessage(LocalDateTime sent, String user, String message) throws SQLException {
         // Creating an chatmessage out of user input
         ChatMessage chatmessage = new ChatMessage(sent, user, message);
         // Adding new chatmessage to messages
-        ChatDatabase database = ChatDatabase.getInstance("ChatServer.db");
-        database.setMessage(chatmessage);
+        ChatDatabase.getInstance().setMessage(chatmessage);
     }
 
-    private int handleGetRequestFromClient(HttpExchange exchange)
+    /*
+     * handleGetRequestFromClient method return all new chatmessages to the user or
+     * the latest 100 chatmessages if there are more than 100 new messages
+     */
+    private List<String> handleGetRequestFromClient(HttpExchange exchange)
             throws IOException, IllegalArgumentException, DateTimeException, JSONException, SQLException {
         // Handle GET request (client wants to see all messages)
+        List<String> status = new ArrayList<>(2);
         int code = 200;
+        String errorMessage = "";
         List<ChatMessage> messages = null;
         Headers headers = exchange.getRequestHeaders();
         String cType = "If-Modified-Since";
@@ -144,14 +175,14 @@ public class ChatHandler implements HttpHandler {
             LocalDateTime fromWhichDate = zonedifModified.toLocalDateTime();
             messagesSince = fromWhichDate.toInstant(ZoneOffset.UTC).toEpochMilli();
         }
-        ChatDatabase database = ChatDatabase.getInstance("ChatServer.db");
-        messages = database.getMessages(messagesSince);
-
+        messages = ChatDatabase.getInstance().getMessages(messagesSince);
         if (messages == null || messages.isEmpty()) {
             ChatServer.log("No new messages to deliver to client");
             code = 204;
             exchange.sendResponseHeaders(code, -1);
-            return code;
+            status.add(0, String.valueOf(code));
+            status.add(1, errorMessage);
+            return status;
         }
         JSONArray responseMessages = new JSONArray();
         DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss.SSSX");
@@ -184,7 +215,9 @@ public class ChatHandler implements HttpHandler {
         OutputStream stream = exchange.getResponseBody();
         stream.write(bytes);
         stream.close();
-        return code;
+        status.add(0, String.valueOf(code));
+        status.add(1, errorMessage);
+        return status;
     }
 
 }

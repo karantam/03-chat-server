@@ -14,35 +14,33 @@ import java.util.List;
 
 import org.apache.commons.codec.digest.Crypt;
 
+/*
+ * ChatDatabase class handles database operations
+ */
 public class ChatDatabase {
 
     private Connection dbConnection = null;
     private static ChatDatabase singleton = null;
     private SecureRandom secureRandom = new SecureRandom();
 
-    public static synchronized ChatDatabase getInstance(String dbName) {
+    public static synchronized ChatDatabase getInstance() {
         if (null == singleton) {
-            singleton = new ChatDatabase(dbName);
+            singleton = new ChatDatabase();
         }
         return singleton;
     }
 
-    private ChatDatabase(String dbName) {
-
-        try {
-            open(dbName);
-        } catch (SQLException e) {
-            ChatServer.log("ERROR SQLException");
-        }
+    private ChatDatabase() {
     }
 
+    /*
+     * open method checks if the database exists and if it dosen't calls
+     * initializeDatabase method to create it. Then it creates a connection to the
+     * database
+     */
     public void open(String dbName) throws SQLException {
         File dbFile = new File(dbName);
         boolean exists = dbFile.exists();
-        // String currentDirectory = System.getProperty("user.dir");
-        // String path = currentDirectory + "/" + dbName;
-        // Changed the method of getting path to the database so there are no hardcoded
-        // parts
         String path = dbFile.getAbsolutePath();
         String database = "jdbc:sqlite:" + path;
         dbConnection = DriverManager.getConnection(database);
@@ -51,6 +49,9 @@ public class ChatDatabase {
         }
     }
 
+    /*
+     * initializeDatabase method creates the database
+     */
     private boolean initializeDatabase() throws SQLException {
         if (null != dbConnection) {
             String registrationDB = "create table registration (user varchar(50) PRIMARY KEY, userpassword varchar(50) NOT NULL, usersalt varchar(50) NOT NULL, useremail varchar(50) NOT NULL)";
@@ -70,14 +71,21 @@ public class ChatDatabase {
         return false;
     }
 
+    /*
+     * closeDB method closes the database connection
+     */
     public void closeDB() throws SQLException {
         if (null != dbConnection) {
             dbConnection.close();
-            ChatServer.log("closing db connection");
+            ChatServer.log("closing database connection");
             dbConnection = null;
         }
     }
 
+    /*
+     * setUser method saves a new user into the database if the username isn't
+     * already in use. It also encrypts the password pefore saving it.
+     */
     public boolean setUser(User user) throws SQLException {
         // Registering a new user
         User existing = getUser(user.getUsername());
@@ -104,6 +112,9 @@ public class ChatDatabase {
         }
     }
 
+    /*
+     * getUser method retrieves user information from the database.
+     */
     public User getUser(String user) throws SQLException {
         String getMessagesString = "select user, userpassword, useremail from registration where user =  \"" + user
                 + "\"";
@@ -126,6 +137,10 @@ public class ChatDatabase {
 
     }
 
+    /*
+     * checkUser method checks if the given username and password match the ones in
+     * the database.
+     */
     public boolean checkUser(String username, String password) throws SQLException {
         User existing = getUser(username);
         if (existing.getUsername().equals(username)
@@ -138,6 +153,9 @@ public class ChatDatabase {
         }
     }
 
+    /*
+     * setMessage method saves a new message into the database.
+     */
     public boolean setMessage(ChatMessage message) throws SQLException {
         String setMessageString = "insert into chat " + "VALUES('" + message.getNick() + "','" + message.getMessage()
                 + "','" + message.dateAsInt() + "')";
@@ -150,6 +168,10 @@ public class ChatDatabase {
         return false;
     }
 
+    /*
+     * getMessages method retrieves messages from the databse. It retrieves up to
+     * 100 messages that the user hasn't seen yet.
+     */
     public List<ChatMessage> getMessages(long since) throws SQLException {
         ArrayList<ChatMessage> messages = new ArrayList<>();
         // Getting all the messages sent after variable since and sorting them by the

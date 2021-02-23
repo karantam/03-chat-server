@@ -1,5 +1,8 @@
 package com.kalle.chatserver;
 
+/*
+ * User class creates a user object containing all the information about that user
+ */
 public class User {
 
     private String username;

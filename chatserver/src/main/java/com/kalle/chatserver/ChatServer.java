@@ -31,11 +31,12 @@ import com.sun.net.httpserver.HttpsServer;
  */
 public class ChatServer {
     public static void main(String[] args) throws Exception {
-        ChatDatabase.getInstance().open(args[0]);
-        final ExecutorService pool;
+        log("Launching Chatserver...");
         if (args.length == 3) {
             try {
-                log("Launching Chatserver with args " + args[0] + args[1] + args[2]);
+                log("Initializing databse ...");
+                ChatDatabase.getInstance().open(args[0]);
+                final ExecutorService pool;
                 HttpsServer server = HttpsServer.create(new InetSocketAddress(8001), 0);
                 // configuring the server to use sslContext
                 SSLContext sslContext = chatServerSSLContext(args[1], args[2]);
@@ -53,7 +54,10 @@ public class ChatServer {
                 server.createContext("/registration", new RegistrationHandler(auth));
                 HttpContext context = server.createContext("/chat", new ChatHandler());
                 context.setAuthenticator(auth);
-                // Creting thread pool
+                // creating channel management context
+                HttpContext context2 = server.createContext("/channel", new ChannelHandler());
+                context2.setAuthenticator(auth);
+                // creating thread pool
                 pool = Executors.newCachedThreadPool();
                 server.setExecutor(pool);
                 log("Starting Chatserver!");

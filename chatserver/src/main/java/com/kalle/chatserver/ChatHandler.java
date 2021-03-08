@@ -115,16 +115,48 @@ public class ChatHandler implements HttpHandler {
             // Creating a JSONObject from user input
             JSONObject chatMsg = new JSONObject(text);
             String user = chatMsg.getString("user");
-            String message = chatMsg.getString("message");
+            String message = null;
+            cType = "message";
+            // Cheking if the JSONObject has message entry as a deletemessage type action dosen't need it so it might not exist
+            if (chatMsg.has(cType)) {
+                message = chatMsg.getString(cType);
+            }
             String datestr = chatMsg.getString("sent");
+            // Implementing chat channels (if JSONObject contains channel entry it is used
+            // otherwise default channel is null)
+            String channel = null;
+            cType = "channel";
+            if (chatMsg.has(cType)) {
+                channel = chatMsg.getString(cType);
+            }
+            // Implementing modifying of sent messages (if JSONObject has action entry it is
+            // used otherwise default is string null(String to avoid NullPointerexception)
+            // which does nothing) and if JSONObject has messageid entry it is used
+            // otherwise default is 0
+            String action = "null";
+            cType = "action";
+            if (chatMsg.has(cType)) {
+                action = chatMsg.getString(cType);
+            }
+            int messageid = 0;
+            cType = "messageid";
+            if (chatMsg.has(cType)) {
+                messageid = Integer.parseInt(chatMsg.getString(cType));
+            }
             OffsetDateTime odt = OffsetDateTime.parse(datestr);
             LocalDateTime sent = odt.toLocalDateTime();
             ChatServer.log(chatMsg.toString());
             // Cheking if the string text is empty or null before adding it to messages
-            if (message != null && !message.isBlank()) {
-                processMessage(sent, user, message);
-                exchange.sendResponseHeaders(code, -1);
-                ChatServer.log("New message saved");
+            if (action.equals("deletemessage") || (message != null && !message.isBlank())) {
+                boolean success = processMessage(sent, user, message, channel, action, messageid);
+                if (success) {
+                    exchange.sendResponseHeaders(code, -1);
+                    ChatServer.log("New message saved");
+                } else {
+                    code = 400;
+                    errorMessage = "There was an error while saving message to the database";
+                    ChatServer.log(errorMessage);
+                }
             } else {
                 // Sending an error message if message was empty or null
                 code = 400;
@@ -143,17 +175,31 @@ public class ChatHandler implements HttpHandler {
 
     /*
      * processMessage method turns the data given by user into a chatmessage object
-     * and saves it into the database
+     * and based on action string edits a message, deletes a message or saves a
+     * message into the database
      */
-    private void processMessage(LocalDateTime sent, String user, String message) throws SQLException {
+    private boolean processMessage(LocalDateTime sent, String user, String message, String channel, String action,
+            int messageid) throws SQLException {
         // Creating an chatmessage out of user input
         ChatMessage chatmessage = new ChatMessage(sent, user, message);
-        // Adding new chatmessage to messages
-        ChatDatabase.getInstance().setMessage(chatmessage);
+        // Determining what to do base on action String
+        boolean success = false;
+        if (action.equals("editmessage")) {
+            success = ChatDatabase.getInstance().editMessage(chatmessage, messageid);
+            ChatServer.log("Message edited");
+        } else if (action.equals("deletemessage")) {
+            success = ChatDatabase.getInstance().deleteMessage(chatmessage, messageid);
+            ChatServer.log("Message deleted");
+        } else {
+            success = ChatDatabase.getInstance().setMessage(chatmessage, channel);
+            ChatServer.log("New message saved");
+        }
+        // Returning if operation was a success
+        return success;
     }
 
     /*
-     * handleGetRequestFromClient method return all new chatmessages to the user or
+     * handleGetRequestFromClient method returns all new chatmessages to the user or
      * the latest 100 chatmessages if there are more than 100 new messages
      */
     private List<String> handleGetRequestFromClient(HttpExchange exchange)
@@ -175,7 +221,14 @@ public class ChatHandler implements HttpHandler {
             LocalDateTime fromWhichDate = zonedifModified.toLocalDateTime();
             messagesSince = fromWhichDate.toInstant(ZoneOffset.UTC).toEpochMilli();
         }
-        messages = ChatDatabase.getInstance().getMessages(messagesSince);
+        // implementing channels (As there is no message body channel name is given in
+        // headers)
+        String channel = null;
+        cType = "channel";
+        if (headers.containsKey(cType)) {
+            channel = headers.get(cType).get(0);
+        }
+        messages = ChatDatabase.getInstance().getMessages(messagesSince, channel);
         if (messages == null || messages.isEmpty()) {
             ChatServer.log("No new messages to deliver to client");
             code = 204;
@@ -219,5 +272,45 @@ public class ChatHandler implements HttpHandler {
         status.add(1, errorMessage);
         return status;
     }
+
+    /*
+     * getWeather method returns temperature based on the given location
+     */
+
+    /*
+     * private String getWeather(String location) throws IOException { URL url = new
+     * URL("https://api.oulunliikenne.fi/proxy/graphql");
+     * 
+     * String address =
+     * "http://opendata.fmi.fi/wfs/fin?service=WFS&version=2.0.0&request=getFeature&storedquery_id=fmi::observations::weather::timevaluepair&place="
+     * + location + "&parameters=t2m&";
+     * 
+     * HttpURLConnection urlConnection = null; InputStream inputStream = null; try {
+     * urlConnection = (HttpURLConnection) url.openConnection();
+     * urlConnection.setReadTimeout(10000); urlConnection.setConnectTimeout(20000);
+     * 
+     * urlConnection.setRequestMethod("POST"); urlConnection.setDoOutput(true);
+     * urlConnection.setDoInput(true);
+     * 
+     * urlConnection.setRequestProperty("Content-Type", "application/json");
+     * 
+     * DataOutputStream dOStream = new
+     * DataOutputStream(urlConnection.getOutputStream());
+     * 
+     * dOStream.
+     * writeBytes("{\"query\":\"query GetAllCarParks {carParks {name spacesAvailable } }\"}"
+     * ); dOStream.flush(); dOStream.close();
+     * 
+     * System.out.println(urlConnection.getResponseCode()); inputStream =
+     * urlConnection.getInputStream(); BufferedReader reader = new
+     * BufferedReader(new InputStreamReader(inputStream, StandardCharsets.UTF_8));
+     * 
+     * String inputDump; while ((inputDump = reader.readLine()) != null) {
+     * System.out.println(inputDump); }
+     * 
+     * } catch (IOException e) { e.printStackTrace(); } finally { if (urlConnection
+     * != null) { urlConnection.disconnect(); } if (inputStream != null) {
+     * inputStream.close(); } } return true; }
+     */
 
 }

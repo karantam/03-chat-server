@@ -11,11 +11,15 @@ public class ChatMessage {
     private LocalDateTime sent;
     private String nick;
     private String message;
+    private String location;
+    private String temperature;
 
-    public ChatMessage(LocalDateTime sentpar, String nickpar, String messagepar) {
+    public ChatMessage(LocalDateTime sentpar, String nickpar, String messagepar, String locationpar, String temperaturepar) {
         this.sent = sentpar;
         this.nick = nickpar;
         this.message = messagepar;
+        this.location = locationpar;
+        this.temperature = temperaturepar;
     }
 
     public LocalDateTime getSent() {
@@ -30,8 +34,16 @@ public class ChatMessage {
         return this.message;
     }
 
+    public String getLocation() {
+        return this.location;
+    }
+
+    public String getTemperature() {
+        return this.temperature;
+    }
+
     public ChatMessage getChatMessage() {
-        return new ChatMessage(sent, nick, message);
+        return new ChatMessage(sent, nick, message, location, temperature);
     }
 
     long dateAsInt() {

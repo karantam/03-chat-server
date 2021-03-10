@@ -21,7 +21,7 @@ public class ChatDatabase {
 
     private Connection dbConnection = null;
     private static ChatDatabase singleton = null;
-    private SecureRandom secureRandom = new SecureRandom();
+    // private SecureRandom secureRandom = new SecureRandom();
 
     public static synchronized ChatDatabase getInstance() {
         if (null == singleton) {
@@ -57,7 +57,7 @@ public class ChatDatabase {
     private boolean initializeDatabase() throws SQLException {
         if (null != dbConnection) {
             String registrationDB = "create table registration (user varchar(50) PRIMARY KEY, userpassword varchar(50) NOT NULL, useremail varchar(50) NOT NULL)";
-            String chatDB = "create table chat (id INTEGER PRIMARY KEY AUTOINCREMENT, user varchar(50) NOT NULL, usermessage varchar(500) NOT NULL, datetime numeric(50) NOT NULL, channel varchar(50))";
+            String chatDB = "create table chat (id INTEGER PRIMARY KEY AUTOINCREMENT, user varchar(50) NOT NULL, usermessage varchar(500) NOT NULL, datetime numeric(50) NOT NULL, channel varchar(50), location varchar(50), temperature varchar(500))";
             String channelDB = "create table channel (channelname varchar(50) PRIMARY KEY)";
             try (Statement createStatement = dbConnection.createStatement()) {
                 createStatement.executeUpdate(registrationDB);
@@ -99,14 +99,15 @@ public class ChatDatabase {
             return false;
         } else {
             // Securing the password before saving it
-            byte[] bytes = new byte[13];
-            secureRandom.nextBytes(bytes);
-            String saltBytes = new String(Base64.getEncoder().encode(bytes));
-            String salt = "$6$" + saltBytes;
-            String hashedPassword = Crypt.crypt(user.getPassword(), salt);
+            /*
+             * byte[] bytes = new byte[13]; secureRandom.nextBytes(bytes); String saltBytes
+             * = new String(Base64.getEncoder().encode(bytes)); String salt = "$6$" +
+             * saltBytes; String hashedPassword = Crypt.crypt(user.getPassword(), salt);
+             */
+            String hashedPassword = Crypt.crypt(user.getPassword());
             // Saving the data of the new user into the database
-            String setMessageString = "insert into registration VALUES('" + user.getUsername() + "','" + hashedPassword
-                    + "','" + user.getEmail() + "')";
+            String setMessageString = "insert into registration VALUES('" + user.getUsername().replace("'", "''")
+                    + "','" + hashedPassword + "','" + user.getEmail().replace("'", "''") + "')";
             try (Statement createStatement = dbConnection.createStatement()) {
                 createStatement.executeUpdate(setMessageString);
             } catch (SQLException e) {
@@ -120,8 +121,10 @@ public class ChatDatabase {
      * getUser method retrieves user information from the database.
      */
     public User getUser(String user) throws SQLException {
-        String getMessagesString = "select user, userpassword, useremail from registration where user =  \"" + user
-                + "\"";
+        String getMessagesString = "select user, userpassword, useremail from registration where user =  '"
+                + user.replace("'", "''") + "'";
+        // String getMessagesString = "select user, userpassword, useremail from
+        // registration where user = \"" + user + "\"";
         String username = null;
         String password = null;
         String email = null;
@@ -166,14 +169,47 @@ public class ChatDatabase {
             ChatServer.log("channel with name " + channel + " doesn't exist");
             return false;
         } else if (channel == null) {
-            setMessageString = "insert into chat (user,usermessage,datetime,channel) VALUES('" + message.getNick() + "','" + message.getMessage() + "','"
-                    + message.dateAsInt() + "', NULL )";
+            if (message.getLocation() != null) {
+                /*
+                 * setMessageString =
+                 * "insert into chat (user,usermessage,datetime,channel,location,temperature) VALUES('"
+                 * + message.getNick() + "','" + message.getMessage() + "','" +
+                 * message.dateAsInt() + "', NULL,'" + message.getLocation() + "','" +
+                 * message.getTemperature() + "')";
+                 */
+                setMessageString = "insert into chat (user,usermessage,datetime,location,temperature) VALUES('"
+                        + message.getNick().replace("'", "''") + "','" + message.getMessage().replace("'", "''") + "','"
+                        + message.dateAsInt() + "','" + message.getLocation().replace("'", "''") + "','"
+                        + message.getTemperature().replace("'", "''") + "')";
+                ChatServer.log("TEST");
+                ChatServer.log(message.getTemperature());
+            } else {
+                /*
+                 * setMessageString =
+                 * "insert into chat (user,usermessage,datetime,channel) VALUES('" +
+                 * message.getNick() + "','" + message.getMessage() + "','" +
+                 * message.dateAsInt() + "', NULL )";
+                 */
+                setMessageString = "insert into chat (user,usermessage,datetime) VALUES('"
+                        + message.getNick().replace("'", "''") + "','" + message.getMessage().replace("'", "''") + "','"
+                        + message.dateAsInt() + "')";
+            }
         } else {
-            setMessageString = "insert into chat (user,usermessage,datetime,channel) VALUES('" + message.getNick() + "','" + message.getMessage() + "','"
-                    + message.dateAsInt() + "','" + channel + "')";
+            if (message.getLocation() != null) {
+                setMessageString = "insert into chat (user,usermessage,datetime,channel,location,temperature) VALUES('"
+                        + message.getNick().replace("'", "''") + "','" + message.getMessage().replace("'", "''") + "','"
+                        + message.dateAsInt() + "','" + channel.replace("'", "''") + "','"
+                        + message.getLocation().replace("'", "''") + "','" + message.getTemperature().replace("'", "''")
+                        + "')";
+            } else {
+                setMessageString = "insert into chat (user,usermessage,datetime,channel) VALUES('"
+                        + message.getNick().replace("'", "''") + "','" + message.getMessage().replace("'", "''") + "','"
+                        + message.dateAsInt() + "','" + channel.replace("'", "''") + "')";
+            }
         }
         try (Statement createStatement = dbConnection.createStatement()) {
             createStatement.executeUpdate(setMessageString);
+            ChatServer.log("TESTTEST");
             return true;
         } catch (SQLException e) {
             ChatServer.log("ERROR: SQLException while adding message to database");
@@ -184,19 +220,34 @@ public class ChatDatabase {
     /*
      * editMessage method edits a previously saved message in the database
      */
-    public boolean editMessage(ChatMessage message, int messageid) throws SQLException {
+    public boolean editMessage(ChatMessage message, int messageid, String channel) throws SQLException {
         String editMessageString;
         List<String> oldmessage = checkMessage(messageid);
+        // added these statements as otherwise vscode complains about duplication of the
+        // strings in them
+        String updatestatement = "UPDATE chat SET user = '";
+        String wherestatement = "' WHERE id = '";
         if (!oldmessage.get(0).equals(message.getNick())) {
             ChatServer.log("User cannot edit other users messages");
             return false;
-        } else if (oldmessage.get(1).equals("<deleted>")){
+        } else if (oldmessage.get(1).equals("<deleted>")) {
             ChatServer.log("Messages that have been deleted cannot be edited.");
             return false;
-        }else {
-            editMessageString = "UPDATE chat SET user = '" + message.getNick() + "', usermessage = '"
-                    + message.getMessage() + "<edited>', datetime = '" + message.dateAsInt() + "' WHERE id = '"
-                    + messageid + "'";
+        } else if (channel == null && oldmessage.get(2) != null) {
+            ChatServer.log("Message (" + messageid + ") was not found. It might be located on a channel");
+            return false;
+        } else if (channel != null && !oldmessage.get(2).equals(channel)) {
+            ChatServer.log("There is no message (" + messageid + ") on channel: " + channel);
+            return false;
+        } else if (message.getLocation() != null) {
+            editMessageString = updatestatement + message.getNick().replace("'", "''") + "', usermessage = '"
+                    + message.getMessage().replace("'", "''") + "<edited>', datetime = '" + message.dateAsInt()
+                    + "', location = '" + message.getLocation().replace("'", "''") + "', temperature = '"
+                    + message.getTemperature().replace("'", "''") + wherestatement + messageid + "'";
+        } else {
+            editMessageString = updatestatement + message.getNick().replace("'", "''") + "', usermessage = '"
+                    + message.getMessage().replace("'", "''") + "<edited>', datetime = '" + message.dateAsInt()
+                    + wherestatement + messageid + "'";
         }
         try (Statement createStatement = dbConnection.createStatement()) {
             createStatement.executeUpdate(editMessageString);
@@ -210,15 +261,22 @@ public class ChatDatabase {
     /*
      * deleteMessage method deletes a previously saved message
      */
-    public boolean deleteMessage(ChatMessage message, int messageid) throws SQLException {
+    public boolean deleteMessage(ChatMessage message, int messageid, String channel) throws SQLException {
         String editMessageString;
         List<String> oldmessage = checkMessage(messageid);
         if (!oldmessage.get(0).equals(message.getNick())) {
             ChatServer.log("User cannot delete other users messages");
             return false;
-        }else {
-            editMessageString = "UPDATE chat SET user = '" + message.getNick() + "', usermessage = '<deleted>', datetime = '" + message.dateAsInt() + "' WHERE id = '"
-                    + messageid  + "'";
+        } else if (channel == null && oldmessage.get(2) != null) {
+            ChatServer.log("Message (" + messageid + ") was not found. It might be located on a channel");
+            return false;
+        } else if (channel != null && !oldmessage.get(2).equals(channel)) {
+            ChatServer.log("There is no message (" + messageid + ") on channel: " + channel);
+            return false;
+        } else {
+            editMessageString = "UPDATE chat SET user = '" + message.getNick().replace("'", "''")
+                    + "', usermessage = '<deleted>', datetime = '" + message.dateAsInt() + "' WHERE id = '" + messageid
+                    + "'";
         }
         try (Statement createStatement = dbConnection.createStatement()) {
             createStatement.executeUpdate(editMessageString);
@@ -243,23 +301,25 @@ public class ChatDatabase {
             return messages;
         } else if (channel == null) {
             if (since == -1) {
-                getMessagesString = "select id, user, usermessage, datetime from (select id, user, usermessage, datetime from chat where channel IS NULL order by datetime DESC limit 100) order by datetime ASC";
+                getMessagesString = "select id, user, usermessage, datetime, location, temperature from (select id, user, usermessage, datetime, location, temperature from chat where channel IS NULL order by datetime DESC limit 100) order by datetime ASC";
             } else {
-                getMessagesString = "select id, user, usermessage, datetime from chat where channel IS NULL AND datetime > "
+                getMessagesString = "select id, user, usermessage, datetime, location, temperature from chat where channel IS NULL AND datetime > "
                         + since + " order by datetime ASC";
             }
         } else {
             if (since == -1) {
-                getMessagesString = "select id, user, usermessage, datetime from (select id, user, usermessage, datetime from chat where channel = '"
-                        + channel + "' order by datetime DESC limit 100) order by datetime ASC";
+                getMessagesString = "select id, user, usermessage, datetime, location, temperature from (select id, user, usermessage, datetime, location, temperature from chat where channel = '"
+                        + channel.replace("'", "''") + "' order by datetime DESC limit 100) order by datetime ASC";
             } else {
-                getMessagesString = "select id, user, usermessage, datetime from chat where channel = '" + channel
-                        + "' AND datetime > " + since + " order by datetime ASC";
+                getMessagesString = "select id, user, usermessage, datetime, location, temperature from chat where channel = '"
+                        + channel.replace("'", "''") + "' AND datetime > " + since + " order by datetime ASC";
             }
         }
         String username = null;
         String message = null;
         LocalDateTime sent = null;
+        String location = null;
+        String temperature = null;
         ChatServer.log("testi1");
         ChatServer.log(channel);
         try (Statement queryStatement = dbConnection.createStatement()) {
@@ -273,7 +333,9 @@ public class ChatDatabase {
                 // string
                 message = "(" + rs.getInt("id") + ") " + rs.getString("usermessage");
                 sent = null;
-                ChatMessage chatmessage = new ChatMessage(sent, username, message);
+                location = rs.getString("location");
+                temperature = rs.getString("temperature");
+                ChatMessage chatmessage = new ChatMessage(sent, username, message, location, temperature);
                 chatmessage.setSent(rs.getLong("datetime"));
                 messages.add(chatmessage);
             }
@@ -290,10 +352,11 @@ public class ChatDatabase {
      * given id number
      */
     public List<String> checkMessage(int messageid) throws SQLException {
-        List<String> messageInfo = new ArrayList<>(2);
-        String getMessagesString = "select id, user, usermessage, datetime from chat where id = " + messageid;
+        List<String> messageInfo = new ArrayList<>(3);
+        String getMessagesString = "select id, user, usermessage, datetime, channel from chat where id = " + messageid;
         String username = null;
         String message = null;
+        String channel = null;
         try (Statement queryStatement = dbConnection.createStatement()) {
             ResultSet rs = queryStatement.executeQuery(getMessagesString);
 
@@ -301,7 +364,9 @@ public class ChatDatabase {
                 username = rs.getString("user");
                 // Here we form the message string from the message id number and the message
                 // string
-                message = "(" + rs.getInt("id") + ") " + rs.getString("usermessage");
+                message = rs.getString("usermessage");
+                // message = "(" + rs.getInt("id") + ") " + rs.getString("usermessage");
+                channel = rs.getString("channel");
             }
 
         } catch (SQLException e) {
@@ -309,6 +374,7 @@ public class ChatDatabase {
         }
         messageInfo.add(0, username);
         messageInfo.add(1, message);
+        messageInfo.add(2, channel);
         return messageInfo;
 
     }
@@ -319,7 +385,7 @@ public class ChatDatabase {
     public boolean createChannel(String channel) throws SQLException {
 
         if (!channelExists(channel)) {
-            String setChannel = "insert into channel VALUES('" + channel + "')";
+            String setChannel = "insert into channel VALUES('" + channel.replace("'", "''") + "')";
             try (Statement createStatement = dbConnection.createStatement()) {
                 createStatement.executeUpdate(setChannel);
                 ChatServer.log("Channel " + channel + " successfully created");
@@ -342,7 +408,9 @@ public class ChatDatabase {
         // if (channel == null){
         // tableExists = "SELECT channelname FROM channel WHERE channelname IS NULL;";
         // } else {
-        tableExists = "SELECT channelname FROM channel WHERE channelname = \"" + channel + "\"";
+        tableExists = "SELECT channelname FROM channel WHERE channelname = '" + channel.replace("'", "''") + "'";
+        // tableExists = "SELECT channelname FROM channel WHERE channelname = \"" +
+        // channel + "\"";
         // }
         boolean exists = false;
         try (Statement queryStatement = dbConnection.createStatement()) {

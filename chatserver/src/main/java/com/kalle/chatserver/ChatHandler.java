@@ -5,6 +5,8 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
+import java.net.HttpURLConnection;
+import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.sql.SQLException;
 import java.time.DateTimeException;
@@ -117,7 +119,8 @@ public class ChatHandler implements HttpHandler {
             String user = chatMsg.getString("user");
             String message = null;
             cType = "message";
-            // Cheking if the JSONObject has message entry as a deletemessage type action dosen't need it so it might not exist
+            // Cheking if the JSONObject has message entry as a deletemessage type action
+            // dosen't need it so it might not exist
             if (chatMsg.has(cType)) {
                 message = chatMsg.getString(cType);
             }
@@ -143,12 +146,17 @@ public class ChatHandler implements HttpHandler {
             if (chatMsg.has(cType)) {
                 messageid = Integer.parseInt(chatMsg.getString(cType));
             }
+            String location = null;
+            cType = "location";
+            if (chatMsg.has(cType)) {
+                location = chatMsg.getString(cType);
+            }
             OffsetDateTime odt = OffsetDateTime.parse(datestr);
             LocalDateTime sent = odt.toLocalDateTime();
             ChatServer.log(chatMsg.toString());
             // Cheking if the string text is empty or null before adding it to messages
             if (action.equals("deletemessage") || (message != null && !message.isBlank())) {
-                boolean success = processMessage(sent, user, message, channel, action, messageid);
+                boolean success = processMessage(sent, user, message, channel, action, messageid, location);
                 if (success) {
                     exchange.sendResponseHeaders(code, -1);
                     ChatServer.log("New message saved");
@@ -179,16 +187,21 @@ public class ChatHandler implements HttpHandler {
      * message into the database
      */
     private boolean processMessage(LocalDateTime sent, String user, String message, String channel, String action,
-            int messageid) throws SQLException {
-        // Creating an chatmessage out of user input
-        ChatMessage chatmessage = new ChatMessage(sent, user, message);
-        // Determining what to do base on action String
+            int messageid, String location) throws SQLException, IOException {
         boolean success = false;
+        String temperature = null;
+        if (location != null) {
+            ChatServer.log("Getting temperature");
+            temperature = getWeather(location, sent);
+        }
+        // Creating an chatmessage out of user input
+        ChatMessage chatmessage = new ChatMessage(sent, user, message, location, temperature);
+        // Determining what to do base on action String
         if (action.equals("editmessage")) {
-            success = ChatDatabase.getInstance().editMessage(chatmessage, messageid);
+            success = ChatDatabase.getInstance().editMessage(chatmessage, messageid, channel);
             ChatServer.log("Message edited");
         } else if (action.equals("deletemessage")) {
-            success = ChatDatabase.getInstance().deleteMessage(chatmessage, messageid);
+            success = ChatDatabase.getInstance().deleteMessage(chatmessage, messageid, channel);
             ChatServer.log("Message deleted");
         } else {
             success = ChatDatabase.getInstance().setMessage(chatmessage, channel);
@@ -253,6 +266,8 @@ public class ChatHandler implements HttpHandler {
             jsonmessage.put("sent", dateText);
             jsonmessage.put("user", chatmessage.getNick());
             jsonmessage.put("message", chatmessage.getMessage());
+            jsonmessage.put("location", chatmessage.getLocation());
+            jsonmessage.put("temperature", chatmessage.getTemperature());
             responseMessages.put(jsonmessage);
         }
         if (newest != null) {
@@ -277,40 +292,77 @@ public class ChatHandler implements HttpHandler {
      * getWeather method returns temperature based on the given location
      */
 
-    /*
-     * private String getWeather(String location) throws IOException { URL url = new
-     * URL("https://api.oulunliikenne.fi/proxy/graphql");
-     * 
-     * String address =
-     * "http://opendata.fmi.fi/wfs/fin?service=WFS&version=2.0.0&request=getFeature&storedquery_id=fmi::observations::weather::timevaluepair&place="
-     * + location + "&parameters=t2m&";
-     * 
-     * HttpURLConnection urlConnection = null; InputStream inputStream = null; try {
-     * urlConnection = (HttpURLConnection) url.openConnection();
-     * urlConnection.setReadTimeout(10000); urlConnection.setConnectTimeout(20000);
-     * 
-     * urlConnection.setRequestMethod("POST"); urlConnection.setDoOutput(true);
-     * urlConnection.setDoInput(true);
-     * 
-     * urlConnection.setRequestProperty("Content-Type", "application/json");
-     * 
-     * DataOutputStream dOStream = new
-     * DataOutputStream(urlConnection.getOutputStream());
-     * 
-     * dOStream.
-     * writeBytes("{\"query\":\"query GetAllCarParks {carParks {name spacesAvailable } }\"}"
-     * ); dOStream.flush(); dOStream.close();
-     * 
-     * System.out.println(urlConnection.getResponseCode()); inputStream =
-     * urlConnection.getInputStream(); BufferedReader reader = new
-     * BufferedReader(new InputStreamReader(inputStream, StandardCharsets.UTF_8));
-     * 
-     * String inputDump; while ((inputDump = reader.readLine()) != null) {
-     * System.out.println(inputDump); }
-     * 
-     * } catch (IOException e) { e.printStackTrace(); } finally { if (urlConnection
-     * != null) { urlConnection.disconnect(); } if (inputStream != null) {
-     * inputStream.close(); } } return true; }
-     */
+    private String getWeather(String location, LocalDateTime sent) throws IOException {
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ssX");
+        ZonedDateTime senttime = ZonedDateTime.of(sent, ZoneId.of("UTC"));
+        // Setting startime and endtime for the data to narrow down results. end time is
+        // the time the message was sent and start time is 3 hours before that. The time
+        // window is 3 hours becaus acording to ilmatiettenlaitos.fi temperatures are
+        // taken somewhere between once every 3 hours to once every minute depending on
+        // the location and time of the data
+        String starttime = senttime.minusHours(3).format(formatter);
+        String endtime = senttime.format(formatter);
+        String address = "http://opendata.fmi.fi/wfs/fin?service=WFS&version=2.0.0&request=getFeature&storedquery_id=fmi::observations::weather::simple&place="
+                + location + "&starttime=" + starttime + "&endtime=" + endtime + "&parameters=t2m&";
+
+        URL url = new URL(address);
+        String temperature = "Temperature wasn't available";
+
+        HttpURLConnection urlConnection = null;
+        InputStream inputStream = null;
+        try {
+            urlConnection = (HttpURLConnection) url.openConnection();
+            urlConnection.setReadTimeout(10000);
+            urlConnection.setConnectTimeout(20000);
+
+            urlConnection.setRequestMethod("GET");
+            // urlConnection.setDoOutput(true);
+            // urlConnection.setDoInput(true);
+
+            // urlConnection.setRequestProperty("Content-Type", "application/json");
+
+            inputStream = urlConnection.getInputStream();
+            // reading data fromthe url
+            try (BufferedReader reader = new BufferedReader(
+                    new InputStreamReader(inputStream, StandardCharsets.UTF_8))) {
+                String outputLine;
+                StringBuilder bld = new StringBuilder();
+                // turning the data into a string an saving it
+                while ((outputLine = reader.readLine()) != null) {
+                    bld.append(outputLine);
+                }
+                String outputAll = bld.toString();
+                String temperatureSeparator1 = "<BsWfs:ParameterValue>";
+                String temperatureSeparator2 = "</BsWfs:ParameterValue>";
+                // As the data entries are ordered by time locating the last and thus most
+                // recent one and cutting of the parts before it
+                if (outputAll.contains(temperatureSeparator1)) {
+                    String lastoutput = outputAll.substring(outputAll.lastIndexOf(temperatureSeparator1));
+                    ChatServer.log(lastoutput);
+                    // Now as there is only one Parametervalue entry left splitting the string so
+                    // only the value of the parameterValue entry remains
+                    if (lastoutput != null && !lastoutput.isBlank()) {
+                        temperature = lastoutput.split(temperatureSeparator1)[1].split(temperatureSeparator2)[0];
+                        temperature = temperature + " C";
+                    } else {
+                        ChatServer.log("Temperature data is not available for that location");
+                    }
+                } else {
+                    ChatServer.log("Temperature data is not available for that location");
+                }
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+        } finally {
+            if (urlConnection != null) {
+                urlConnection.disconnect();
+            }
+            if (inputStream != null) {
+                inputStream.close();
+            }
+        }
+        ChatServer.log(temperature);
+        return temperature;
+    }
 
 }

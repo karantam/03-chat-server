@@ -120,7 +120,8 @@ public class ChatHandler implements HttpHandler {
             input.close();
             // Creating a JSONObject from user input
             JSONObject chatMsg = new JSONObject(text);
-            String nickname = chatMsg.getString("user");
+            cType = "user";
+            String nickname = hasContentString(chatMsg, cType);
             // Cheking if the JSONObject has a message entry as a deletemessage type action
             // doesn't need it so it might not exist
 
@@ -132,7 +133,9 @@ public class ChatHandler implements HttpHandler {
 
             cType = "message";
             String message = hasContentString(chatMsg, cType);
-            String datestr = chatMsg.getString("sent");
+            
+            cType = "sent";
+            String datestr = hasContentString(chatMsg, cType);
             // Implementing chat channels (if JSONObject contains channel entry it is used
             // otherwise default channel is null)
 
@@ -343,7 +346,14 @@ public class ChatHandler implements HttpHandler {
             channel = headers.get(cType).get(0);
         }
         messages = ChatDatabase.getInstance().getMessages(messagesSince, channel);
-        if (messages == null || messages.isEmpty()) {
+        if (messages == null){
+            code = 400;
+            statusMessage = "channel with name " + channel + " doesn't exist";
+            status.add(0, String.valueOf(code));
+            status.add(1, statusMessage);
+            return status;
+        }else if (messages.isEmpty()) {
+            //if (messages == null || messages.isEmpty()) {
             code = 204;
             statusMessage = "There are no new messages to deliver";
             exchange.sendResponseHeaders(code, -1);
@@ -418,7 +428,7 @@ public class ChatHandler implements HttpHandler {
         // the location and the time when the data was collected
         String starttime = senttime.minusHours(3).format(formatter);
         String endtime = senttime.format(formatter);
-        String address = "http://opendata.fmi.fi/wfs/fin?service=WFS&version=2.0.0&request=getFeature&storedquery_id=fmi::observations::weather::simple&place="
+        String address = "https://opendata.fmi.fi/wfs/fin?service=WFS&version=2.0.0&request=getFeature&storedquery_id=fmi::observations::weather::simple&place="
                 + location + "&starttime=" + starttime + "&endtime=" + endtime + "&parameters=t2m&";
 
         URL url = new URL(address);
@@ -484,7 +494,7 @@ public class ChatHandler implements HttpHandler {
     }
 
     /*
-     * hasContent method returns the value of the desired content from JSONObject or null if the content dosen't exist
+     * hasContentString method returns the value of the desired String from JSONObject or null if the content dosen't exist
      */
 
     private String hasContentString(JSONObject object ,String content) {
@@ -495,6 +505,9 @@ public class ChatHandler implements HttpHandler {
         return value;
     }
 
+    /*
+     * hasContentInt method returns the value of the desired integer from JSONObject or 0 if the content dosen't exist
+     */
     private int hasContentInt(JSONObject object ,String content) {
         int value = 0;
         if (object.has(content)) {

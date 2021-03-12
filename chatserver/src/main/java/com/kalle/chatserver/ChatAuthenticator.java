@@ -12,7 +12,7 @@ import com.sun.net.httpserver.BasicAuthenticator;
 public class ChatAuthenticator extends BasicAuthenticator {
 
     private static final int MINNAME = 2;
-    private static final int MINPASS = 4;
+    private static final int MINPASS = 5;
 
     public ChatAuthenticator() {
         super("chat");

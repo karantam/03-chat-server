@@ -146,7 +146,7 @@ public class ChatDatabase {
             ResultSet rs = queryStatement.executeQuery(getMessagesString);
             while (rs.next()) {
                 username = rs.getString("user");
-                // Now we get a hashed version of the password
+                // This version of the password has been hashed
                 password = rs.getString("userpassword");
                 email = rs.getString("useremail");
             }
@@ -164,8 +164,9 @@ public class ChatDatabase {
      */
     public boolean checkUser(String username, String password) throws SQLException {
         User existing = getUser(username);
-        if (existing.getUsername().equals(username)
-                && existing.getPassword().equals(Crypt.crypt(password, existing.getPassword()))) {
+
+        if (existing.getUsername() != null && existing.getUsername().equals(username)
+                && existing.getPassword() != null && existing.getPassword().equals(Crypt.crypt(password, existing.getPassword()))) {
             ChatServer.log("User OK");
             return true;
         } else {
@@ -201,6 +202,7 @@ public class ChatDatabase {
             String role = rs.getString("role");
             if (role.equals("admin")){
                 value = true;
+                ChatServer.log(role);
             }
 
         } catch (SQLException e) {
@@ -229,19 +231,29 @@ public class ChatDatabase {
      * editUser method edits a registerd user
      */
     public List<String> editUser(User newuser, String oldusername, String newrole, String adminname) throws SQLException {
+        ChatServer.log("Starting to edit user");
         List<String> status = new ArrayList<>(2);
         int code = 200;
         String statusMessage = "";
         String editMessageString;
         if (!isAdmin(adminname)) {
             code = 403;
+            ChatServer.log("not admin and the code is " + code);
             statusMessage = "Only admins can edit users";
             status.add(0, String.valueOf(code));
             status.add(1, statusMessage);
+            System.out.println(status);
             return status;
-        } else if (!getUser(oldusername).getUsername().equals(oldusername)) {
+        } else if (getUser(oldusername).getUsername() == null || !getUser(oldusername).getUsername().equals(oldusername)) {
             code = 400;
             statusMessage = "That user doesn't exist";
+            status.add(0, String.valueOf(code));
+            status.add(1, statusMessage);
+            return status;
+        }else if (getUser(newuser.getUsername()) != null && !getUser(newuser.getUsername()).getUsername().equals(oldusername)){
+            // Cheking that the new username is not already in use if it isn't the same as the old username
+            code = 403;
+            statusMessage = "New user data is invalid";
             status.add(0, String.valueOf(code));
             status.add(1, statusMessage);
             return status;
@@ -250,9 +262,9 @@ public class ChatDatabase {
             if (anotherAdminExists(oldusername)){
                 // Securing the password before saving it
                 String hashedPassword = Crypt.crypt(newuser.getPassword());
-                editMessageString = "UPDATE registration SET nickname = '" + newuser.getUsername().replace("'", "''") + "', userpassword = '"
-                        + hashedPassword + ", useremail = '" + newuser.getEmail().replace("'", "''")
-                        + "', role = '" + newrole + "' WHERE user = '" + oldusername + "'";
+                editMessageString = "UPDATE registration SET user = '" + newuser.getUsername().replace("'", "''") + "', userpassword = '"
+                        + hashedPassword + "', useremail = '" + newuser.getEmail().replace("'", "''")
+                        + "', role = '" + newrole + "' WHERE user = '" + oldusername.replace("'", "''") + "'";
             } else {
                 code = 403;
                 statusMessage = "You cannot turn the last admin into a normal user";
@@ -263,12 +275,13 @@ public class ChatDatabase {
         } else {
             // Securing the password before saving it
             String hashedPassword = Crypt.crypt(newuser.getPassword());
-            editMessageString = "UPDATE registration SET nickname = '" + newuser.getUsername().replace("'", "''") + "', userpassword = '"
-                    + hashedPassword + ", useremail = '" + newuser.getEmail().replace("'", "''")
-                    + "', role = '" + newrole + "' WHERE user = '" + oldusername + "'";
+            editMessageString = "UPDATE registration SET user = '" + newuser.getUsername().replace("'", "''") + "', userpassword = '"
+                    + hashedPassword + "', useremail = '" + newuser.getEmail().replace("'", "''")
+                    + "', role = '" + newrole + "' WHERE user = '" + oldusername.replace("'", "''") + "'";
         }
         try (Statement createStatement = dbConnection.createStatement()) {
             createStatement.executeUpdate(editMessageString);
+            ChatServer.log("First part done");
             if (updateMessages(oldusername, newuser.getUsername())){
                 statusMessage = "User was edited and users old messages were updated";
             } else {
@@ -298,7 +311,7 @@ public class ChatDatabase {
             status.add(0, String.valueOf(code));
             status.add(1, statusMessage);
             return status;
-        } else if (!getUser(username).getUsername().equals(username)) {
+        } else if (getUser(username).getUsername() == null || !getUser(username).getUsername().equals(username)) {
             code = 400;
             statusMessage = "That user doesn't exist";
             status.add(0, String.valueOf(code));
@@ -411,13 +424,13 @@ public class ChatDatabase {
             status.add(0, String.valueOf(code));
             status.add(1, statusMessage);
             return status;
-        } else if (!oldmessage.get(0).equals(username)) {
+        } else if (oldmessage.get(0) != null && !oldmessage.get(0).equals(username)) {
             code = 403;
             statusMessage = "User cannot edit other users messages";
             status.add(0, String.valueOf(code));
             status.add(1, statusMessage);
             return status;
-        } else if (oldmessage.get(1).equals("<deleted>")) {
+        } else if (oldmessage.get(1) != null && oldmessage.get(1).equals("<deleted>")) {
             code = 403;
             statusMessage = "Messages that have been deleted cannot be edited.";
             status.add(0, String.valueOf(code));
@@ -429,9 +442,15 @@ public class ChatDatabase {
             status.add(0, String.valueOf(code));
             status.add(1, statusMessage);
             return status;
-        } else if (channel != null && !oldmessage.get(2).equals(channel)) {
+        } else if (channel != null && oldmessage.get(2) != null && !oldmessage.get(2).equals(channel)) {
             code = 400;
             statusMessage = "There is no message (" + messageid + ") on channel: " + channel;
+            status.add(0, String.valueOf(code));
+            status.add(1, statusMessage);
+            return status;
+        } else if (channel != null && oldmessage.get(2) == null) {
+            code = 400;
+            statusMessage = "Message: " + messageid + " was not found. It might not be located on a channel";
             status.add(0, String.valueOf(code));
             status.add(1, statusMessage);
             return status;
@@ -473,7 +492,7 @@ public class ChatDatabase {
             status.add(0, String.valueOf(code));
             status.add(1, statusMessage);
             return status;
-        } else if (!oldmessage.get(0).equals(username) && !isAdmin(username)) {
+        } else if (oldmessage.get(0) != null && !oldmessage.get(0).equals(username) && !isAdmin(username)) {
             // normal users can only delete their own messages
             // admins can delete other users messages
             code = 403;
@@ -487,13 +506,19 @@ public class ChatDatabase {
             status.add(0, String.valueOf(code));
             status.add(1, statusMessage);
             return status;
-        } else if (channel != null && !oldmessage.get(2).equals(channel)) {
+        } else if (channel != null && oldmessage.get(2) != null && !oldmessage.get(2).equals(channel)) {
             code = 400;
             statusMessage = "There is no message (" + messageid + ") on channel: " + channel;
             status.add(0, String.valueOf(code));
             status.add(1, statusMessage);
             return status;
-        } else {
+        } else if (channel != null && oldmessage.get(2) == null) {
+            code = 400;
+            statusMessage = "Message: " + messageid + " was not found. It might not be located on a channel";
+            status.add(0, String.valueOf(code));
+            status.add(1, statusMessage);
+            return status;
+        }else {
             // Changing the message to <deleted> and setting location and temperature to null leaving only data on who and when
             editMessageString = "UPDATE chat SET nickname = '" + message.getNick().replace("'", "''")
                     + "', usermessage = '<deleted>', datetime = '" + message.dateAsInt() + "', location = NULL, temperature = NULL WHERE id = '" + messageid
@@ -523,6 +548,7 @@ public class ChatDatabase {
         String getMessagesString;
         if (channel != null && !channelExists(channel)) {
             ChatServer.log("channel with name " + channel + " doesn't exist");
+            messages = null;
             return messages;
         } else if (channel == null) {
             if (since == -1) {

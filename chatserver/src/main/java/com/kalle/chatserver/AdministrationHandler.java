@@ -112,9 +112,12 @@ public class AdministrationHandler implements HttpHandler {
             String adminName = exchange.getPrincipal().getUsername();
             // Cheking if the string username or action is empty
             if (!username.isBlank() && !action.isBlank()) {
+                System.out.println(status);
                 status = processAction(username, action, userDetails, adminName);
+                System.out.println(status);
                 code = Integer.parseInt(status.get(0));
                 statusMessage = status.get(1);
+                ChatServer.log("The code is " + code);
                 if (code < 400) {
                     exchange.sendResponseHeaders(code, -1);
                     ChatServer.log("POST request processed in /administration");
@@ -153,9 +156,15 @@ public class AdministrationHandler implements HttpHandler {
                 newEmail = hasContentString(userDetails, cType);
                 cType = "role";
                 newRole = hasContentString(userDetails, cType);
-                if(newUsername.length() < 3 || newPassword.length() < 5 || newEmail.contains("@")){
+                if(newUsername.length() < 3 || newPassword.length() < 5 || !newEmail.contains("@")){
                         code = 400;
                         statusMessage = "Name must be at least three characters long, password must be at least five characters long and email must be a valid email address";
+                        status.add(0, String.valueOf(code));
+                        status.add(1, statusMessage);
+                        return status;
+                    }else if(!newRole.equals("admin") && !newRole.equals("user")){
+                        code = 400;
+                        statusMessage = "Role must be user or admin";
                         status.add(0, String.valueOf(code));
                         status.add(1, statusMessage);
                         return status;
@@ -169,8 +178,10 @@ public class AdministrationHandler implements HttpHandler {
             }
             User newUserDetails = new User(newUsername, newPassword, newEmail);
             status = ChatDatabase.getInstance().editUser(newUserDetails, username, newRole, adminName);
+            return status;
         } else if (action.equals("remove")) {
             status = ChatDatabase.getInstance().deleteUser(username, adminName);
+            return status;
         } else {
             code = 400;
             statusMessage = "Invalid action";

@@ -134,9 +134,12 @@ public class RegistrationHandler implements HttpHandler {
         // creating a JSONObject from the user input
         JSONObject registrationMsg = new JSONObject(text);
         // Cheking if any of the user inputs fields was empty
-        String username = registrationMsg.getString("username");
-        String password = registrationMsg.getString("password");
-        String email = registrationMsg.getString("email");
+        String cType = "username";
+        String username = hasContentString(registrationMsg, cType);
+        cType = "password";
+        String password = hasContentString(registrationMsg, cType);
+        cType = "email";
+        String email = hasContentString(registrationMsg, cType);
         if (username != null && !username.isBlank() && password != null && !password.isBlank() && email != null
                 && !email.isBlank()) {
             User user = new User(username, password, email);
@@ -163,5 +166,17 @@ public class RegistrationHandler implements HttpHandler {
         status.add(0, String.valueOf(code));
         status.add(1, statusMessage);
         return status;
+    }
+
+    /*
+     * hasContentString method returns the value of the desired String from JSONObject or null if the content dosen't exist
+     */
+
+    private String hasContentString(JSONObject object ,String content) {
+        String value = null;
+        if (object.has(content)) {
+            value = object.getString(content);
+        }
+        return value;
     }
 }

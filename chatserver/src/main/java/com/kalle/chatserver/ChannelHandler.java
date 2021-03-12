@@ -105,7 +105,8 @@ public class ChannelHandler implements HttpHandler {
             input.close();
             // Creating a JSONObject from user input
             JSONObject channelMsg = new JSONObject(text);
-            String channel = channelMsg.getString("channel");
+            cType = "channel";
+            String channel = hasContentString(channelMsg, cType);
             // Cheking if the string channel is empty or null before using it to create a channel
             if (channel != null && !channel.isBlank()) {
                 ChatServer.log(channel);
@@ -184,5 +185,16 @@ public class ChannelHandler implements HttpHandler {
         return status;
     }
 
+    /*
+     * hasContentString method returns the value of the desired String from JSONObject or null if the content dosen't exist
+     */
+
+    private String hasContentString(JSONObject object ,String content) {
+        String value = null;
+        if (object.has(content)) {
+            value = object.getString(content);
+        }
+        return value;
+    }
 }
 

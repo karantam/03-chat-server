@@ -85,10 +85,10 @@ public class ChatHandler implements HttpHandler {
      */
     private List<String> handleChatMessageFromClient(HttpExchange exchange) throws JSONException, NumberFormatException,
             IndexOutOfBoundsException, IOException, DateTimeParseException, SQLException {
-        // Handle POST requests (client sent a new chat message or wants to edit or delete an old message)
+        // Handle POST requests (client sent a new chat message or wants to edit or
+        // delete an old message)
         List<String> status = new ArrayList<>(2);
         int code;
-        //int code = 200;
         String statusMessage = "";
         Headers headers = exchange.getRequestHeaders();
         int contentLength = 0;
@@ -124,61 +124,32 @@ public class ChatHandler implements HttpHandler {
             String nickname = hasContentString(chatMsg, cType);
             // Cheking if the JSONObject has a message entry as a deletemessage type action
             // doesn't need it so it might not exist
-
-            /*String message = null;
-            cType = "message";
-            if (chatMsg.has(cType)) {
-                message = chatMsg.getString(cType);
-            }*/
-
             cType = "message";
             String message = hasContentString(chatMsg, cType);
-            
             cType = "sent";
             String datestr = hasContentString(chatMsg, cType);
             // Implementing chat channels (if JSONObject contains channel entry it is used
             // otherwise default channel is null)
 
-            /*String channel = null;
-            cType = "channel";
-            if (chatMsg.has(cType)) {
-                channel = chatMsg.getString(cType);
-            }*/
-
             cType = "channel";
             String channel = hasContentString(chatMsg, cType);
 
             // Implementing modifying of sent messages (if JSONObject has action entry it is
-            // used otherwise default is an empty string which does nothing) and if JSONObject 
+            // used otherwise default is an empty string which does nothing) and if
+            // JSONObject
             // has messageid entry it is used otherwise default is 0
-
-            /*String action = "null";
-            cType = "action";
-            if (chatMsg.has(cType)) {
-                action = chatMsg.getString(cType);
-            }*/
 
             cType = "action";
             String action = hasContentString(chatMsg, cType);
-            // The String action causes problems if it is null so we change it to an empty string n that case
-            if (action == null){
+            // The String action causes problems if it is null so we change it to an empty
+            // string n that case
+            if (action == null) {
                 action = "";
             }
 
-            /*int messageid = 0;
-            cType = "messageid";
-            if (chatMsg.has(cType)) {
-                messageid = Integer.parseInt(chatMsg.getString(cType));
-            }*/
-            
             cType = "messageid";
             int messageid = hasContentInt(chatMsg, cType);
 
-            /*String location = null;
-            cType = "location";
-            if (chatMsg.has(cType)) {
-                location = chatMsg.getString(cType);
-            }*/
             cType = "location";
             String location = hasContentString(chatMsg, cType);
 
@@ -188,13 +159,11 @@ public class ChatHandler implements HttpHandler {
             // Getting username from authentication header
             String username = exchange.getPrincipal().getUsername();
 
-            ChatServer.log(chatMsg.toString());
             String temperature = "";
             if (location != null) {
-                ChatServer.log("Getting temperature");
                 temperature = getWeather(location, sent);
             }
-            if (temperature.equals("Invalid location")){
+            if (temperature.equals("Invalid location")) {
                 code = 400;
                 statusMessage = temperature;
                 status.add(0, String.valueOf(code));
@@ -204,35 +173,12 @@ public class ChatHandler implements HttpHandler {
             // Creating a chatmessage out of user input
             ChatMessage chatmessage = new ChatMessage(sent, nickname, message, location, temperature);
             status = processMessage(chatmessage, channel, action, messageid, username);
-            //status = processMessage(sent, nickname, message, channel, action, messageid, location, username);
             code = Integer.parseInt(status.get(0));
             statusMessage = status.get(1);
             if (code < 400) {
                 exchange.sendResponseHeaders(code, -1);
                 ChatServer.log("POST request processed in /chat");
-                /*String statusMessage = "Message has been succesfully delivered";
-                byte[] bytes = statusMessage.getBytes(StandardCharsets.UTF_8);
-                exchange.sendResponseHeaders(code, bytes.length);*/
-            } 
-            
-            /*if (action.equals("deletemessage") || (message != null && !message.isBlank())) {
-                status = processMessage(sent, user, message, channel, action, messageid, location);
-                code = Integer.parseInt(status.get(0));
-                errorMessage = status.get(1);
-                if (code < 400) {
-                    exchange.sendResponseHeaders(code, -1);
-                    ChatServer.log("New message saved");
-                } else {
-                    code = 400;
-                    errorMessage = "There was an error while saving message to the database";
-                    ChatServer.log(errorMessage);
-                }
-            } else {
-                // Sending an error message if message was empty or null
-                code = 400;
-                errorMessage = "Message was empty";
-                ChatServer.log(errorMessage);
-            }*/
+            }
         } else {
             code = 411;
             statusMessage = "Content-Type must be application/json";
@@ -247,38 +193,16 @@ public class ChatHandler implements HttpHandler {
      * and based on action string edits a message, deletes a message or saves a
      * message into the database
      */
-    private List<String> processMessage(ChatMessage chatmessage, String channel, String action,
-            int messageid, String username) throws SQLException, IOException {
+    private List<String> processMessage(ChatMessage chatmessage, String channel, String action, int messageid,
+            String username) throws SQLException {
         List<String> status = new ArrayList<>(2);
         int code;
-        //int code = 200;
         String statusMessage = "";
-        /*String temperature = "";
-        if (location != null) {
-            ChatServer.log("Getting temperature");
-            temperature = getWeather(location, sent);
-        }
-        if (temperature.equals("Invalid location")){
-            code = 400;
-            statusMessage = temperature;
-            status.add(0, String.valueOf(code));
-            status.add(1, statusMessage);
-            return status;
-        }*/
-        // Creating a chatmessage out of user input
-        //ChatMessage chatmessage = new ChatMessage(sent, nickname, message, location, temperature);
         // Determining what to do base on action String and message String
         if (action.equals("deletemessage")) {
             status = ChatDatabase.getInstance().deleteMessage(chatmessage, messageid, channel, username);
             code = Integer.parseInt(status.get(0));
             statusMessage = status.get(1);
-            /*if (success){
-                ChatServer.log("Message deleted");
-            } else{
-                code = 400;
-                errorMessage = "There was a problem while trying to delete the message";
-                ChatServer.log("Message wasn't deleted");
-            }*/
         } else if (chatmessage.getMessage() == null || chatmessage.getMessage().isBlank()) {
             code = 400;
             statusMessage = "Message was empty";
@@ -286,30 +210,17 @@ public class ChatHandler implements HttpHandler {
             status = ChatDatabase.getInstance().editMessage(chatmessage, messageid, channel, username);
             code = Integer.parseInt(status.get(0));
             statusMessage = status.get(1);
-            /*if (success){
-                ChatServer.log("Message edited");
-            } else{
-                code = 400;
-                statusMessage = "There was a problem while trying to edit the message";
-                ChatServer.log("Message wasn't edited");
-            }*/
         } else if (!action.equals("") && !action.equals("deletemessage") && !action.equals("editmessage")) {
             // Giving an error if action was given but wasn't deletemessage or editmessage
             code = 400;
             statusMessage = "Invalid action";
-        }else {
+        } else {
             status = ChatDatabase.getInstance().setMessage(chatmessage, channel, username);
             code = Integer.parseInt(status.get(0));
             statusMessage = status.get(1);
-            /*if (success){
-                ChatServer.log("New message saved");
-            } else{
-                code = 400;
-                errorMessage = "There was a problem while trying to save the message";
-                ChatServer.log("Message wasn't saved");
-            }*/
         }
-        // Returning data on how the operation went in the form of a status code and a message
+        // Returning data on how the operation went in the form of a status code and a
+        // message
         status.add(0, String.valueOf(code));
         status.add(1, statusMessage);
         return status;
@@ -346,14 +257,13 @@ public class ChatHandler implements HttpHandler {
             channel = headers.get(cType).get(0);
         }
         messages = ChatDatabase.getInstance().getMessages(messagesSince, channel);
-        if (messages == null){
+        if (messages == null) {
             code = 400;
             statusMessage = "channel with name " + channel + " doesn't exist";
             status.add(0, String.valueOf(code));
             status.add(1, statusMessage);
             return status;
-        }else if (messages.isEmpty()) {
-            //if (messages == null || messages.isEmpty()) {
+        } else if (messages.isEmpty()) {
             code = 204;
             statusMessage = "There are no new messages to deliver";
             exchange.sendResponseHeaders(code, -1);
@@ -361,16 +271,8 @@ public class ChatHandler implements HttpHandler {
             status.add(0, String.valueOf(code));
             status.add(1, statusMessage);
             return status;
-
-            /*String statusMessage = "There are no new messages";
-            byte[] bytes = statusMessage.getBytes(StandardCharsets.UTF_8);
-            exchange.sendResponseHeaders(code, bytes.length);*/
-
-            /*status.add(0, String.valueOf(code));
-            status.add(1, statusMessage);
-            return status;*/
-        } 
-        statusMessage = "Delivering " + messages.size() + " messages to client"; 
+        }
+        statusMessage = "Delivering " + messages.size() + " messages to client";
         JSONArray responseMessages = new JSONArray();
         DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss.SSSX");
         LocalDateTime newest = null;
@@ -393,15 +295,9 @@ public class ChatHandler implements HttpHandler {
         }
         if (newest != null) {
             String lastModified = newest.format(formatterLast);
-            ChatServer.log("Last-Modified: " + lastModified);
             Headers headers2 = exchange.getResponseHeaders();
             headers2.add("Last-Modified", lastModified);
         }
-        /*if (messages == null){
-            statusMessage = "There are no new messages to deliver";
-        } else {
-            statusMessage = "Delivering " + messages.size() + " messages to client";
-        }*/
         String messagesstr = responseMessages.toString();
         byte[] bytes = messagesstr.getBytes(StandardCharsets.UTF_8);
         exchange.sendResponseHeaders(code, bytes.length);
@@ -442,13 +338,8 @@ public class ChatHandler implements HttpHandler {
             urlConnection.setConnectTimeout(20000);
 
             urlConnection.setRequestMethod("GET");
-            // urlConnection.setDoOutput(true);
-            // urlConnection.setDoInput(true);
-
-            // urlConnection.setRequestProperty("Content-Type", "application/json");
-
             inputStream = urlConnection.getInputStream();
-            // reading data fromthe url
+            // reading data from the url
             try (BufferedReader reader = new BufferedReader(
                     new InputStreamReader(inputStream, StandardCharsets.UTF_8))) {
                 String outputLine;
@@ -464,7 +355,6 @@ public class ChatHandler implements HttpHandler {
                 // recent one and cutting of the parts before it
                 if (outputAll.contains(temperatureSeparator1)) {
                     String lastoutput = outputAll.substring(outputAll.lastIndexOf(temperatureSeparator1));
-                    ChatServer.log(lastoutput);
                     // Now as there is only one Parametervalue entry left splitting the string so
                     // only the value of the parameterValue entry remains
                     if (lastoutput != null && !lastoutput.isBlank()) {
@@ -478,7 +368,9 @@ public class ChatHandler implements HttpHandler {
                 }
             }
         } catch (IOException e) {
-            // The most probable cause for this error is that opendata.fmi.fi couldn't find locations matching the one given to it. Probalbly because the location either doesn't exist or was misspelled.
+            // The most probable cause for this error is that opendata.fmi.fi couldn't find
+            // locations matching the one given to it. Probalbly because the location either
+            // doesn't exist or was misspelled.
             ChatServer.log("Couldn't find data for that location");
             temperature = "Invalid location";
         } finally {
@@ -494,10 +386,11 @@ public class ChatHandler implements HttpHandler {
     }
 
     /*
-     * hasContentString method returns the value of the desired String from JSONObject or null if the content dosen't exist
+     * hasContentString method returns the value of the desired String from
+     * JSONObject or null if the content dosen't exist
      */
 
-    private String hasContentString(JSONObject object ,String content) {
+    private String hasContentString(JSONObject object, String content) {
         String value = null;
         if (object.has(content)) {
             value = object.getString(content);
@@ -506,9 +399,10 @@ public class ChatHandler implements HttpHandler {
     }
 
     /*
-     * hasContentInt method returns the value of the desired integer from JSONObject or 0 if the content dosen't exist
+     * hasContentInt method returns the value of the desired integer from JSONObject
+     * or 0 if the content dosen't exist
      */
-    private int hasContentInt(JSONObject object ,String content) {
+    private int hasContentInt(JSONObject object, String content) {
         int value = 0;
         if (object.has(content)) {
             value = object.getInt(content);

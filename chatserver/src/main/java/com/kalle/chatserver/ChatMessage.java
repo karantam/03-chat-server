@@ -14,7 +14,8 @@ public class ChatMessage {
     private String location;
     private String temperature;
 
-    public ChatMessage(LocalDateTime sentpar, String nickpar, String messagepar, String locationpar, String temperaturepar) {
+    public ChatMessage(LocalDateTime sentpar, String nickpar, String messagepar, String locationpar,
+            String temperaturepar) {
         this.sent = sentpar;
         this.nick = nickpar;
         this.message = messagepar;

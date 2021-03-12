@@ -77,7 +77,6 @@ public class RegistrationHandler implements HttpHandler {
         // Handle POST requests (client sent new username and password)
         List<String> status = new ArrayList<>(2);
         int code;
-        //int code = 200;
         String statusMessage = "";
         Headers headers = exchange.getRequestHeaders();
         int contentLength = 0;
@@ -128,7 +127,6 @@ public class RegistrationHandler implements HttpHandler {
             throws JSONException, IOException, SQLException {
         List<String> status = new ArrayList<>(2);
         int code;
-        //int code = 200;
         String statusMessage = "";
         // Adding the username and password to known users
         // creating a JSONObject from the user input
@@ -148,16 +146,7 @@ public class RegistrationHandler implements HttpHandler {
             statusMessage = status.get(1);
             if (code < 400) {
                 exchange.sendResponseHeaders(code, -1);
-                /*String statusMessage = "New user has been registered";
-                byte[] bytes = statusMessage.getBytes(StandardCharsets.UTF_8);
-                exchange.sendResponseHeaders(code, bytes.length);*/
-                //statusMessage = "New user has been registered";
-            } 
-            /*else {
-                // Sending an error message if username is already in use
-                code = 403;
-                statusMessage = "Invalid user credentials";
-            }*/
+            }
         } else {
             // Sending an error message if username, password or email was empty or null
             code = 400;
@@ -169,10 +158,11 @@ public class RegistrationHandler implements HttpHandler {
     }
 
     /*
-     * hasContentString method returns the value of the desired String from JSONObject or null if the content dosen't exist
+     * hasContentString method returns the value of the desired String from
+     * JSONObject or null if the content dosen't exist
      */
 
-    private String hasContentString(JSONObject object ,String content) {
+    private String hasContentString(JSONObject object, String content) {
         String value = null;
         if (object.has(content)) {
             value = object.getString(content);

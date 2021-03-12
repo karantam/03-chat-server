@@ -60,7 +60,8 @@ public class ChatServer {
                 HttpContext channelContext = server.createContext("/channel", new ChannelHandler());
                 channelContext.setAuthenticator(auth);
                 // creating user administration management context
-                HttpContext administrationContext = server.createContext("/administration", new AdministrationHandler());
+                HttpContext administrationContext = server.createContext("/administration",
+                        new AdministrationHandler());
                 administrationContext.setAuthenticator(auth);
                 // creating thread pool
                 pool = Executors.newCachedThreadPool();
@@ -72,7 +73,7 @@ public class ChatServer {
                     String shutdown = System.console().readLine();
                     if (shutdown.equals("/quit")) {
                         running = false;
-                    }else{
+                    } else {
                         log("Type /quit to shut down the chatserver");
                     }
                 }

@@ -73,7 +73,6 @@ public class ChannelHandler implements HttpHandler {
         // Handle POST requests (client want's to create a new channel)
         List<String> status = new ArrayList<>(2);
         int code;
-        //int code = 200;
         String statusMessage = "";
         Headers headers = exchange.getRequestHeaders();
         int contentLength = 0;
@@ -107,24 +106,16 @@ public class ChannelHandler implements HttpHandler {
             JSONObject channelMsg = new JSONObject(text);
             cType = "channel";
             String channel = hasContentString(channelMsg, cType);
-            // Cheking if the string channel is empty or null before using it to create a channel
+            // Cheking if the string channel is empty or null before using it to create a
+            // channel
             if (channel != null && !channel.isBlank()) {
-                ChatServer.log(channel);
                 status = ChatDatabase.getInstance().createChannel(channel);
                 code = Integer.parseInt(status.get(0));
                 statusMessage = status.get(1);
                 if (code < 400) {
-                    /*String statusMessage = "New channel: " + channel + "has been created";
-                    byte[] bytes = statusMessage.getBytes(StandardCharsets.UTF_8);
-                    exchange.sendResponseHeaders(code, bytes.length);*/
                     exchange.sendResponseHeaders(code, -1);
                     ChatServer.log("POST request processed in /channel");
                 }
-                /*else {
-                    // Sending an error message if channel creation failed
-                    code = 400;
-                    statusMessage = "Channel creation failed";
-                }*/
             } else {
                 // Sending an error message if channel name was empty or null
                 code = 400;
@@ -158,13 +149,6 @@ public class ChannelHandler implements HttpHandler {
             status.add(0, String.valueOf(code));
             status.add(1, statusMessage);
             return status;
-            /*String statusMessage = "There are no additional channels";
-            byte[] bytes = statusMessage.getBytes(StandardCharsets.UTF_8);
-            exchange.sendResponseHeaders(code, bytes.length);*/
-
-            /*status.add(0, String.valueOf(code));
-            status.add(1, errorMessage);
-            return status;*/
         }
         statusMessage = "Delivering a list of channels to a client";
         JSONArray responseChannels = new JSONArray();
@@ -186,10 +170,11 @@ public class ChannelHandler implements HttpHandler {
     }
 
     /*
-     * hasContentString method returns the value of the desired String from JSONObject or null if the content dosen't exist
+     * hasContentString method returns the value of the desired String from
+     * JSONObject or null if the content dosen't exist
      */
 
-    private String hasContentString(JSONObject object ,String content) {
+    private String hasContentString(JSONObject object, String content) {
         String value = null;
         if (object.has(content)) {
             value = object.getString(content);
@@ -197,4 +182,3 @@ public class ChannelHandler implements HttpHandler {
         return value;
     }
 }
-

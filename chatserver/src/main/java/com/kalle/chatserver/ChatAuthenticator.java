@@ -20,7 +20,6 @@ public class ChatAuthenticator extends BasicAuthenticator {
 
     @Override
     public boolean checkCredentials(String username, String password) {
-        //ChatDatabase database = ChatDatabase.getInstance();
         Boolean value = false;
         try {
             value = ChatDatabase.getInstance().checkUser(username, password);
@@ -40,28 +39,26 @@ public class ChatAuthenticator extends BasicAuthenticator {
         Boolean add = false;
         // adding new users
         if (user.getUsername().length() < MINNAME) {
-            ChatServer.log("ERROR: Name must be at least three characters long");
             code = 400;
             statusMessage = "Name must be at least three characters long";
             status.add(0, String.valueOf(code));
             status.add(1, statusMessage);
             return status;
         } else if (user.getPassword().length() < MINPASS) {
-            ChatServer.log("ERROR: Password must be at least five characters long");
             code = 400;
             statusMessage = "Password must be at least five characters long";
             status.add(0, String.valueOf(code));
             status.add(1, statusMessage);
             return status;
-            // client tests do not use email so temporarily removed this feature
-            /*
-             * } else if(!user.getEmail().contains("@")){
-             * ChatServer.log("ERROR: email is not valid"); code = 400;statusMessage =
-             * "Invalid email address"; status.add(0, String.valueOf(code)); status.add(1,
-             * statusMessage); return status;;
-             */
+
+        } else if (!user.getEmail().contains("@")) {
+            code = 400;
+            statusMessage = "Invalid email address";
+            status.add(0, String.valueOf(code));
+            status.add(1, statusMessage);
+            return status;
+
         }
-        //ChatDatabase database = ChatDatabase.getInstance();
         try {
             add = ChatDatabase.getInstance().setUser(user);
             if (Boolean.TRUE.equals(add)) {
@@ -75,7 +72,6 @@ public class ChatAuthenticator extends BasicAuthenticator {
             code = 400;
             statusMessage = "An error occurred while registering user";
         }
-        // return add;
         status.add(0, String.valueOf(code));
         status.add(1, statusMessage);
         return status;

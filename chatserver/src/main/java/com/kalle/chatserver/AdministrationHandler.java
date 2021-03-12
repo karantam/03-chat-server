@@ -66,7 +66,6 @@ public class AdministrationHandler implements HttpHandler {
         // Handle POST requests (client want's to edits or deletes an user)
         List<String> status = new ArrayList<>(2);
         int code;
-        //int code = 200;
         String statusMessage = "";
         Headers headers = exchange.getRequestHeaders();
         int contentLength = 0;
@@ -112,12 +111,9 @@ public class AdministrationHandler implements HttpHandler {
             String adminName = exchange.getPrincipal().getUsername();
             // Cheking if the string username or action is empty
             if (!username.isBlank() && !action.isBlank()) {
-                System.out.println(status);
                 status = processAction(username, action, userDetails, adminName);
-                System.out.println(status);
                 code = Integer.parseInt(status.get(0));
                 statusMessage = status.get(1);
-                ChatServer.log("The code is " + code);
                 if (code < 400) {
                     exchange.sendResponseHeaders(code, -1);
                     ChatServer.log("POST request processed in /administration");
@@ -137,9 +133,9 @@ public class AdministrationHandler implements HttpHandler {
     }
 
     private List<String> processAction(String username, String action, JSONObject userDetails, String adminName)
-            throws SQLException{
+            throws SQLException {
         List<String> status = new ArrayList<>(2);
-        int code = 200;
+        int code;
         String statusMessage = "";
 
         if (action.equals("edit")) {
@@ -156,19 +152,19 @@ public class AdministrationHandler implements HttpHandler {
                 newEmail = hasContentString(userDetails, cType);
                 cType = "role";
                 newRole = hasContentString(userDetails, cType);
-                if(newUsername.length() < 3 || newPassword.length() < 5 || !newEmail.contains("@")){
-                        code = 400;
-                        statusMessage = "Name must be at least three characters long, password must be at least five characters long and email must be a valid email address";
-                        status.add(0, String.valueOf(code));
-                        status.add(1, statusMessage);
-                        return status;
-                    }else if(!newRole.equals("admin") && !newRole.equals("user")){
-                        code = 400;
-                        statusMessage = "Role must be user or admin";
-                        status.add(0, String.valueOf(code));
-                        status.add(1, statusMessage);
-                        return status;
-                    }
+                if (newUsername.length() < 3 || newPassword.length() < 5 || !newEmail.contains("@")) {
+                    code = 400;
+                    statusMessage = "Name must be at least three characters long, password must be at least five characters long and email must be a valid email address";
+                    status.add(0, String.valueOf(code));
+                    status.add(1, statusMessage);
+                    return status;
+                } else if (!newRole.equals("admin") && !newRole.equals("user")) {
+                    code = 400;
+                    statusMessage = "Role must be user or admin";
+                    status.add(0, String.valueOf(code));
+                    status.add(1, statusMessage);
+                    return status;
+                }
             } else {
                 code = 400;
                 statusMessage = "Missing user details";

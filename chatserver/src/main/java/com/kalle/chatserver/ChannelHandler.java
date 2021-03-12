@@ -26,40 +26,42 @@ public class ChannelHandler implements HttpHandler {
     public void handle(HttpExchange exchange) throws IOException {
         List<String> status = new ArrayList<>(2);
         int code = 200;
-        String errorMessage = "";
+        String statusMessage = "";
         try {
             ChatServer.log("Request handled in thread " + Thread.currentThread().getId());
             if (exchange.getRequestMethod().equalsIgnoreCase("POST")) {
                 // Handle POST requests in method
                 status = handleChannelCreation(exchange);
                 code = Integer.parseInt(status.get(0));
-                errorMessage = status.get(1);
+                statusMessage = status.get(1);
             } else if (exchange.getRequestMethod().equalsIgnoreCase("GET")) {
                 // Handle GET request in method
                 status = handleGetRequestFromClient(exchange);
                 code = Integer.parseInt(status.get(0));
-                errorMessage = status.get(1);
+                statusMessage = status.get(1);
             } else {
                 // Something we do not support
                 code = 400;
-                errorMessage = "Not supported";
+                statusMessage = "Not supported";
             }
         } catch (IOException e) {
             // Handle exception
             code = 500;
-            errorMessage = "Error in handling the request: " + e.getMessage();
+            statusMessage = "Error in handling the request: " + e.getMessage();
         } catch (Exception e) {
             // Handle exception
             code = 500;
-            errorMessage = "Internal server error: " + e.getMessage();
+            statusMessage = "Internal server error: " + e.getMessage();
         }
         if (code >= 400) {
-            ChatServer.log("Error in /channel: " + code + " " + errorMessage);
-            byte[] bytes = errorMessage.getBytes(StandardCharsets.UTF_8);
+            ChatServer.log("Error in /channel: " + code + " " + statusMessage);
+            byte[] bytes = statusMessage.getBytes(StandardCharsets.UTF_8);
             exchange.sendResponseHeaders(code, bytes.length);
             OutputStream stream = exchange.getResponseBody();
             stream.write(bytes);
             stream.close();
+        } else {
+            ChatServer.log(statusMessage);
         }
     }
 
@@ -68,10 +70,10 @@ public class ChannelHandler implements HttpHandler {
      */
     private List<String> handleChannelCreation(HttpExchange exchange) throws JSONException, NumberFormatException,
             IndexOutOfBoundsException, IOException, DateTimeParseException, SQLException {
-        // Handle POST requests (client sent new chat message)
+        // Handle POST requests (client want's to create a new channel)
         List<String> status = new ArrayList<>(2);
         int code = 200;
-        String errorMessage = "";
+        String statusMessage = "";
         Headers headers = exchange.getRequestHeaders();
         int contentLength = 0;
         String contentType = "";
@@ -80,17 +82,18 @@ public class ChannelHandler implements HttpHandler {
             contentLength = Integer.parseInt(headers.get("Content-Length").get(0));
         } else {
             code = 411;
+            statusMessage = "No content length in request";
             status.add(0, String.valueOf(code));
-            status.add(1, errorMessage);
+            status.add(1, statusMessage);
             return status;
         }
         if (headers.containsKey(cType)) {
             contentType = headers.get(cType).get(0);
         } else {
             code = 400;
-            errorMessage = "No content type in request";
+            statusMessage = "No content type in request";
             status.add(0, String.valueOf(code));
-            status.add(1, errorMessage);
+            status.add(1, statusMessage);
             return status;
         }
         if (contentType.equalsIgnoreCase("application/json")) {
@@ -102,26 +105,35 @@ public class ChannelHandler implements HttpHandler {
             // Creating a JSONObject from user input
             JSONObject chatMsg = new JSONObject(text);
             String channel = chatMsg.getString("channel");
-            // Implementin chat channels
-            ChatServer.log(channel);
-            // Cheking if the string text is empty or null before adding it to messages
+            // Cheking if the string channel is empty or null before using it to create a channel
             if (channel != null && !channel.isBlank()) {
-                ChatDatabase.getInstance().createChannel(channel);
-                exchange.sendResponseHeaders(code, -1);
-                ChatServer.log("New channel created");
+                ChatServer.log(channel);
+                status = ChatDatabase.getInstance().createChannel(channel);
+                code = Integer.parseInt(status.get(0));
+                statusMessage = status.get(1);
+                if (code < 400) {
+                    /*String statusMessage = "New channel: " + channel + "has been created";
+                    byte[] bytes = statusMessage.getBytes(StandardCharsets.UTF_8);
+                    exchange.sendResponseHeaders(code, bytes.length);*/
+                    exchange.sendResponseHeaders(code, -1);
+                    ChatServer.log("POST request processed in /channel");
+                }
+                /*else {
+                    // Sending an error message if channel creation failed
+                    code = 400;
+                    statusMessage = "Channel creation failed";
+                }*/
             } else {
                 // Sending an error message if channel name was empty or null
                 code = 400;
-                errorMessage = "Channel didn't have a name";
-                ChatServer.log(errorMessage);
+                statusMessage = "Channel didn't have a name";
             }
         } else {
             code = 411;
-            errorMessage = "Content-Type must be application/json";
-            ChatServer.log(errorMessage);
+            statusMessage = "Content-Type must be application/json";
         }
         status.add(0, String.valueOf(code));
-        status.add(1, errorMessage);
+        status.add(1, statusMessage);
         return status;
     }
 
@@ -130,35 +142,44 @@ public class ChannelHandler implements HttpHandler {
      */
     private List<String> handleGetRequestFromClient(HttpExchange exchange)
             throws IOException, IllegalArgumentException, DateTimeException, JSONException, SQLException {
-        // Handle GET request (client wants to see all messages)
+        // Handle GET request (client wants to see what channels exist)
         List<String> status = new ArrayList<>(2);
         int code = 200;
-        String errorMessage = "";
+        String statusMessage = "";
         List<String> channelList = null;
         channelList = ChatDatabase.getInstance().getChannels();
         if (channelList == null || channelList.isEmpty()) {
-            ChatServer.log("There are no additional channels");
             code = 204;
+            statusMessage = "There are no additional channels";
             exchange.sendResponseHeaders(code, -1);
+            ChatServer.log("GET request processed in /channel");
             status.add(0, String.valueOf(code));
-            status.add(1, errorMessage);
+            status.add(1, statusMessage);
             return status;
+            /*String statusMessage = "There are no additional channels";
+            byte[] bytes = statusMessage.getBytes(StandardCharsets.UTF_8);
+            exchange.sendResponseHeaders(code, bytes.length);*/
+
+            /*status.add(0, String.valueOf(code));
+            status.add(1, errorMessage);
+            return status;*/
         }
+        statusMessage = "Delivering a list of channels to a client";
         JSONArray responseChannels = new JSONArray();
         for (String channel : channelList) {
             JSONObject jsonmessage = new JSONObject();
             jsonmessage.put("channel", channel);
             responseChannels.put(jsonmessage);
         }
-        ChatServer.log("Delivering a list of channels to client");
         String channelsstr = responseChannels.toString();
         byte[] bytes = channelsstr.getBytes(StandardCharsets.UTF_8);
         exchange.sendResponseHeaders(code, bytes.length);
         OutputStream stream = exchange.getResponseBody();
         stream.write(bytes);
         stream.close();
+        ChatServer.log("GET request processed in /channel");
         status.add(0, String.valueOf(code));
-        status.add(1, errorMessage);
+        status.add(1, statusMessage);
         return status;
     }
 

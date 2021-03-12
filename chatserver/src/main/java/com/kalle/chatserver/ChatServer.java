@@ -27,7 +27,7 @@ import com.sun.net.httpserver.HttpsServer;
 
 /*
  * ChatServer class is the main class of the chatserver. It takes in the staring 
- * parameters and launches the srver and shuts it down when the user so requests.
+ * parameters and launches the server and shuts it down when the user so requests.
  */
 public class ChatServer {
     public static void main(String[] args) throws Exception {

@@ -7,7 +7,6 @@ import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
 import java.sql.SQLException;
-import java.time.DateTimeException;
 import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.List;
@@ -17,11 +16,10 @@ import com.sun.net.httpserver.Headers;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
 
-import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
-public class ChannelHandler implements HttpHandler {
+public class AdministrationHandler implements HttpHandler {
     @Override
     public void handle(HttpExchange exchange) throws IOException {
         List<String> status = new ArrayList<>(2);
@@ -31,12 +29,7 @@ public class ChannelHandler implements HttpHandler {
             ChatServer.log("Request handled in thread " + Thread.currentThread().getId());
             if (exchange.getRequestMethod().equalsIgnoreCase("POST")) {
                 // Handle POST requests in method
-                status = handleChannelCreation(exchange);
-                code = Integer.parseInt(status.get(0));
-                statusMessage = status.get(1);
-            } else if (exchange.getRequestMethod().equalsIgnoreCase("GET")) {
-                // Handle GET request in method
-                status = handleGetRequestFromClient(exchange);
+                status = handleAdministrationRequest(exchange);
                 code = Integer.parseInt(status.get(0));
                 statusMessage = status.get(1);
             } else {
@@ -54,7 +47,7 @@ public class ChannelHandler implements HttpHandler {
             statusMessage = "Internal server error: " + e.getMessage();
         }
         if (code >= 400) {
-            ChatServer.log("Error in /channel: " + code + " " + statusMessage);
+            ChatServer.log("Error in /administration: " + code + " " + statusMessage);
             byte[] bytes = statusMessage.getBytes(StandardCharsets.UTF_8);
             exchange.sendResponseHeaders(code, bytes.length);
             OutputStream stream = exchange.getResponseBody();
@@ -66,11 +59,11 @@ public class ChannelHandler implements HttpHandler {
     }
 
     /*
-     * handleChannelCreation method creates a new chat channel
+     * handleAdministrationRequest method edits or deletes an user
      */
-    private List<String> handleChannelCreation(HttpExchange exchange) throws JSONException, NumberFormatException,
+    private List<String> handleAdministrationRequest(HttpExchange exchange) throws JSONException, NumberFormatException,
             IndexOutOfBoundsException, IOException, DateTimeParseException, SQLException {
-        // Handle POST requests (client want's to create a new channel)
+        // Handle POST requests (client want's to edits or deletes an user)
         List<String> status = new ArrayList<>(2);
         int code;
         //int code = 200;
@@ -104,30 +97,32 @@ public class ChannelHandler implements HttpHandler {
             ChatServer.log(text);
             input.close();
             // Creating a JSONObject from user input
-            JSONObject channelMsg = new JSONObject(text);
-            String channel = channelMsg.getString("channel");
-            // Cheking if the string channel is empty or null before using it to create a channel
-            if (channel != null && !channel.isBlank()) {
-                ChatServer.log(channel);
-                status = ChatDatabase.getInstance().createChannel(channel);
+            JSONObject administrationMsg = new JSONObject(text);
+
+            cType = "user";
+            String username = hasContentString(administrationMsg, cType);
+
+            cType = "action";
+            String action = hasContentString(administrationMsg, cType);
+
+            cType = "userdetails";
+            JSONObject userDetails = hasContentJSON(administrationMsg, cType);
+
+            // Getting username from authentication header
+            String adminName = exchange.getPrincipal().getUsername();
+            // Cheking if the string username or action is empty
+            if (!username.isBlank() && !action.isBlank()) {
+                status = processAction(username, action, userDetails, adminName);
                 code = Integer.parseInt(status.get(0));
                 statusMessage = status.get(1);
                 if (code < 400) {
-                    /*String statusMessage = "New channel: " + channel + "has been created";
-                    byte[] bytes = statusMessage.getBytes(StandardCharsets.UTF_8);
-                    exchange.sendResponseHeaders(code, bytes.length);*/
                     exchange.sendResponseHeaders(code, -1);
-                    ChatServer.log("POST request processed in /channel");
+                    ChatServer.log("POST request processed in /administration");
                 }
-                /*else {
-                    // Sending an error message if channel creation failed
-                    code = 400;
-                    statusMessage = "Channel creation failed";
-                }*/
             } else {
-                // Sending an error message if channel name was empty or null
+                // Sending an error message if action or username was empty or null
                 code = 400;
-                statusMessage = "Channel didn't have a name";
+                statusMessage = "Action or username was missing.";
             }
         } else {
             code = 411;
@@ -138,51 +133,66 @@ public class ChannelHandler implements HttpHandler {
         return status;
     }
 
-    /*
-     * handleGetRequestFromClient method returns a list of channels
-     */
-    private List<String> handleGetRequestFromClient(HttpExchange exchange)
-            throws IOException, IllegalArgumentException, DateTimeException, JSONException, SQLException {
-        // Handle GET request (client wants to see what channels exist)
+    private List<String> processAction(String username, String action, JSONObject userDetails, String adminName)
+            throws SQLException{
         List<String> status = new ArrayList<>(2);
         int code = 200;
         String statusMessage = "";
-        List<String> channelList = null;
-        channelList = ChatDatabase.getInstance().getChannels();
-        if (channelList == null || channelList.isEmpty()) {
-            code = 204;
-            statusMessage = "There are no additional channels";
-            exchange.sendResponseHeaders(code, -1);
-            ChatServer.log("GET request processed in /channel");
-            status.add(0, String.valueOf(code));
-            status.add(1, statusMessage);
-            return status;
-            /*String statusMessage = "There are no additional channels";
-            byte[] bytes = statusMessage.getBytes(StandardCharsets.UTF_8);
-            exchange.sendResponseHeaders(code, bytes.length);*/
 
-            /*status.add(0, String.valueOf(code));
-            status.add(1, errorMessage);
-            return status;*/
+        if (action.equals("edit")) {
+            String newUsername = null;
+            String newPassword = null;
+            String newEmail = null;
+            String newRole = null;
+            if (userDetails != null) {
+                String cType = "username";
+                newUsername = hasContentString(userDetails, cType);
+                cType = "password";
+                newPassword = hasContentString(userDetails, cType);
+                cType = "email";
+                newEmail = hasContentString(userDetails, cType);
+                cType = "role";
+                newRole = hasContentString(userDetails, cType);
+                if(newUsername.length() < 3 || newPassword.length() < 5 || newEmail.contains("@")){
+                        code = 400;
+                        statusMessage = "Name must be at least three characters long, password must be at least five characters long and email must be a valid email address";
+                        status.add(0, String.valueOf(code));
+                        status.add(1, statusMessage);
+                        return status;
+                    }
+            } else {
+                code = 400;
+                statusMessage = "Missing user details";
+                status.add(0, String.valueOf(code));
+                status.add(1, statusMessage);
+                return status;
+            }
+            User newUserDetails = new User(newUsername, newPassword, newEmail);
+            status = ChatDatabase.getInstance().editUser(newUserDetails, username, newRole, adminName);
+        } else if (action.equals("remove")) {
+            status = ChatDatabase.getInstance().deleteUser(username, adminName);
+        } else {
+            code = 400;
+            statusMessage = "Invalid action";
         }
-        statusMessage = "Delivering a list of channels to a client";
-        JSONArray responseChannels = new JSONArray();
-        for (String channel : channelList) {
-            JSONObject jsonmessage = new JSONObject();
-            jsonmessage.put("channel", channel);
-            responseChannels.put(jsonmessage);
-        }
-        String channelsstr = responseChannels.toString();
-        byte[] bytes = channelsstr.getBytes(StandardCharsets.UTF_8);
-        exchange.sendResponseHeaders(code, bytes.length);
-        OutputStream stream = exchange.getResponseBody();
-        stream.write(bytes);
-        stream.close();
-        ChatServer.log("GET request processed in /channel");
         status.add(0, String.valueOf(code));
         status.add(1, statusMessage);
         return status;
     }
 
-}
+    private String hasContentString(JSONObject object, String content) {
+        String value = "";
+        if (object.has(content)) {
+            value = object.getString(content);
+        }
+        return value;
+    }
 
+    private JSONObject hasContentJSON(JSONObject object, String content) {
+        JSONObject value = null;
+        if (object.has(content)) {
+            value = object.getJSONObject(content);
+        }
+        return value;
+    }
+}

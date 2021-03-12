@@ -51,12 +51,17 @@ public class ChatServer {
                 });
                 // creating contexts
                 ChatAuthenticator auth = new ChatAuthenticator();
+                // creating registration management context
                 server.createContext("/registration", new RegistrationHandler(auth));
-                HttpContext context = server.createContext("/chat", new ChatHandler());
-                context.setAuthenticator(auth);
+                // creating chat management context
+                HttpContext chatContext = server.createContext("/chat", new ChatHandler());
+                chatContext.setAuthenticator(auth);
                 // creating channel management context
-                HttpContext context2 = server.createContext("/channel", new ChannelHandler());
-                context2.setAuthenticator(auth);
+                HttpContext channelContext = server.createContext("/channel", new ChannelHandler());
+                channelContext.setAuthenticator(auth);
+                // creating user administration management context
+                HttpContext administrationContext = server.createContext("/administration", new ChannelHandler());
+                administrationContext.setAuthenticator(auth);
                 // creating thread pool
                 pool = Executors.newCachedThreadPool();
                 server.setExecutor(pool);

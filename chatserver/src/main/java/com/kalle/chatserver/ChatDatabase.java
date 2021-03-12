@@ -1,7 +1,7 @@
 package com.kalle.chatserver;
 
 import java.io.File;
-import java.security.SecureRandom;
+//import java.security.SecureRandom;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.ResultSet;
@@ -9,7 +9,7 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
-import java.util.Base64;
+//import java.util.Base64;
 import java.util.List;
 
 import org.apache.commons.codec.digest.Crypt;

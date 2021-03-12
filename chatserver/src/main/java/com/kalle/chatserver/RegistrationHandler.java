@@ -76,7 +76,8 @@ public class RegistrationHandler implements HttpHandler {
             throws NumberFormatException, IndexOutOfBoundsException, IOException, JSONException, SQLException {
         // Handle POST requests (client sent new username and password)
         List<String> status = new ArrayList<>(2);
-        int code = 200;
+        int code;
+        //int code = 200;
         String statusMessage = "";
         Headers headers = exchange.getRequestHeaders();
         int contentLength = 0;
@@ -126,7 +127,8 @@ public class RegistrationHandler implements HttpHandler {
     private List<String> processUser(HttpExchange exchange, String text)
             throws JSONException, IOException, SQLException {
         List<String> status = new ArrayList<>(2);
-        int code = 200;
+        int code;
+        //int code = 200;
         String statusMessage = "";
         // Adding the username and password to known users
         // creating a JSONObject from the user input

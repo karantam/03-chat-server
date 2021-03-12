@@ -87,7 +87,8 @@ public class ChatHandler implements HttpHandler {
             IndexOutOfBoundsException, IOException, DateTimeParseException, SQLException {
         // Handle POST requests (client sent a new chat message or wants to edit or delete an old message)
         List<String> status = new ArrayList<>(2);
-        int code = 200;
+        int code;
+        //int code = 200;
         String statusMessage = "";
         Headers headers = exchange.getRequestHeaders();
         int contentLength = 0;
@@ -246,7 +247,8 @@ public class ChatHandler implements HttpHandler {
     private List<String> processMessage(ChatMessage chatmessage, String channel, String action,
             int messageid, String username) throws SQLException, IOException {
         List<String> status = new ArrayList<>(2);
-        int code = 200;
+        int code;
+        //int code = 200;
         String statusMessage = "";
         /*String temperature = "";
         if (location != null) {
@@ -288,7 +290,11 @@ public class ChatHandler implements HttpHandler {
                 statusMessage = "There was a problem while trying to edit the message";
                 ChatServer.log("Message wasn't edited");
             }*/
-        } else {
+        } else if (!action.equals("") && !action.equals("deletemessage") && !action.equals("editmessage")) {
+            // Giving an error if action was given but wasn't deletemessage or editmessage
+            code = 400;
+            statusMessage = "Invalid action";
+        }else {
             status = ChatDatabase.getInstance().setMessage(chatmessage, channel, username);
             code = Integer.parseInt(status.get(0));
             statusMessage = status.get(1);

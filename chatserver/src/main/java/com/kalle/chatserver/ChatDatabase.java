@@ -53,6 +53,8 @@ public class ChatDatabase {
      */
     private boolean initializeDatabase() throws SQLException {
         if (null != dbConnection) {
+            // Creating three tables in the database. Registration for user information,
+            // chat for chat messages and channel for created channels
             String registrationDB = "create table registration (user varchar(50) PRIMARY KEY, userpassword varchar(50) NOT NULL, useremail varchar(50) NOT NULL, role varchar(50) NOT NULL)";
             String chatDB = "create table chat (id INTEGER PRIMARY KEY AUTOINCREMENT, username varchar(50) NOT NULL, nickname varchar(50) NOT NULL, usermessage varchar(500) NOT NULL, datetime numeric(50) NOT NULL, channel varchar(50), location varchar(50), temperature varchar(500))";
             String channelDB = "create table channel (channelname varchar(50) PRIMARY KEY)";
@@ -83,6 +85,8 @@ public class ChatDatabase {
         }
     }
 
+    // Methods for the registration table
+
     /*
      * setUser method saves a new user into the database if the username isn't
      * already in use. It also encrypts the password pefore saving it.
@@ -104,6 +108,7 @@ public class ChatDatabase {
                 createStatement.executeUpdate(setMessageString);
             } catch (SQLException e) {
                 ChatServer.log("ERROR: SQLException while adding user to database");
+                return false;
             }
             return true;
         } else {
@@ -116,6 +121,7 @@ public class ChatDatabase {
                 createStatement.executeUpdate(setMessageString);
             } catch (SQLException e) {
                 ChatServer.log("ERROR: SQLException while adding user to database");
+                return false;
             }
             return true;
         }
@@ -125,6 +131,7 @@ public class ChatDatabase {
      * getUser method retrieves user information from the database.
      */
     public User getUser(String user) throws SQLException {
+        // retrieves username, password and email for the given user
         String getMessagesString = "select user, userpassword, useremail from registration where user =  '"
                 + user.replace("'", "''") + "'";
         String username = null;
@@ -168,14 +175,17 @@ public class ChatDatabase {
      * if there are users and false if there are no users
      */
     public boolean usersExists() throws SQLException {
+        // Selecting one user from registration table
         String getMessagesString = "select user from registration limit 1";
         boolean value = false;
         try (Statement queryStatement = dbConnection.createStatement()) {
             ResultSet rs = queryStatement.executeQuery(getMessagesString);
+            // If there was an user to be selected in the registration table rs.next()
+            // returns true and if the query didn't find an user it returns false
             value = rs.next();
 
         } catch (SQLException e) {
-            ChatServer.log("ERROR: SQLException while cheking if there are any users already registered");
+            ChatServer.log("ERROR: SQLException while checking if there are any users already registered");
         }
         return value;
     }
@@ -184,6 +194,7 @@ public class ChatDatabase {
      * isAdmin method checks if the user is an admin.
      */
     public boolean isAdmin(String user) throws SQLException {
+        // Selecting the given user from registration table and reading their role
         String getMessagesString = "select role from registration where user = '" + user.replace("'", "''") + "'";
         boolean value = false;
         try (Statement queryStatement = dbConnection.createStatement()) {
@@ -203,6 +214,8 @@ public class ChatDatabase {
      * anotherAdminExists method checks that the given user is not the last admin.
      */
     public boolean anotherAdminExists(String username) throws SQLException {
+        // Checking if there is an user in registartion table who is an admin and isn't
+        // the given user
         String getMessagesString = "select role from (select role from registration where user != '"
                 + username.replace("'", "''") + "') where role = 'admin'";
         boolean value = false;
@@ -211,7 +224,7 @@ public class ChatDatabase {
             value = rs.next();
 
         } catch (SQLException e) {
-            ChatServer.log("ERROR: SQLException while cheking if the user is the last admin");
+            ChatServer.log("ERROR: SQLException while checking if the user is the last admin");
         }
         return value;
     }
@@ -221,11 +234,13 @@ public class ChatDatabase {
      */
     public List<String> editUser(User newuser, String oldusername, String newrole, String adminname)
             throws SQLException {
+        // The list status is used to deliver status codes and status messages
         List<String> status = new ArrayList<>(2);
         int code = 200;
         String statusMessage = "";
         String editMessageString;
         if (!isAdmin(adminname)) {
+            // Checking if the user trying to edit users is an admin
             code = 403;
             statusMessage = "Only admins can edit users";
             status.add(0, String.valueOf(code));
@@ -233,6 +248,7 @@ public class ChatDatabase {
             return status;
         } else if (getUser(oldusername).getUsername() == null
                 || !getUser(oldusername).getUsername().equals(oldusername)) {
+            // Checking if user being edited exists
             code = 400;
             statusMessage = "That user doesn't exist";
             status.add(0, String.valueOf(code));
@@ -240,15 +256,15 @@ public class ChatDatabase {
             return status;
         } else if (getUser(newuser.getUsername()) != null
                 && !getUser(newuser.getUsername()).getUsername().equals(oldusername)) {
-            // Cheking that the new username is not already in use if it isn't the same as
-            // the old username
+            // Checking that the new username is not already in use and if it isn't the same
+            // as the old username
             code = 403;
             statusMessage = "New user data is invalid";
             status.add(0, String.valueOf(code));
             status.add(1, statusMessage);
             return status;
         } else if (newrole.equals("user")) {
-            // We check that we are not turning the last admin into a normal user
+            // We check that the last admin is not being turned into a normal user
             if (anotherAdminExists(oldusername)) {
                 // Securing the password before saving it
                 String hashedPassword = Crypt.crypt(newuser.getPassword());
@@ -274,6 +290,8 @@ public class ChatDatabase {
         try (Statement createStatement = dbConnection.createStatement()) {
             createStatement.executeUpdate(editMessageString);
             if (updateMessages(oldusername, newuser.getUsername())) {
+                // Updating the edited users old messages so that they still count as that users
+                // messages
                 statusMessage = "User was edited and users old messages were updated";
             } else {
                 statusMessage = "User was edited but users old messages couldn't be updated";
@@ -292,17 +310,20 @@ public class ChatDatabase {
      * deleteUser method deletes a registerd user
      */
     public List<String> deleteUser(String username, String adminname) throws SQLException {
+        // The list status is used to deliver status codes and status messages
         List<String> status = new ArrayList<>(2);
         int code = 200;
         String statusMessage = "";
         String editMessageString;
         if (!isAdmin(adminname)) {
+            // Checking if the user trying to delete users is an admin
             code = 403;
             statusMessage = "Only admins can delete users";
             status.add(0, String.valueOf(code));
             status.add(1, statusMessage);
             return status;
         } else if (getUser(username).getUsername() == null || !getUser(username).getUsername().equals(username)) {
+            // Checking if user being deleted exists
             code = 400;
             statusMessage = "That user doesn't exist";
             status.add(0, String.valueOf(code));
@@ -310,6 +331,7 @@ public class ChatDatabase {
             return status;
         } else {
             if (anotherAdminExists(username)) {
+                // We check that the last admin is not being deleted
                 editMessageString = "DELETE FROM registration WHERE user = '" + username.replace("'", "''") + "'";
             } else {
                 code = 403;
@@ -332,15 +354,19 @@ public class ChatDatabase {
         return status;
     }
 
+    // Methods for the chat table
+
     /*
      * setMessage method saves a new message into the database.
      */
     public List<String> setMessage(ChatMessage message, String channel, String username) throws SQLException {
+        // The list status is used to deliver status codes and status messages
         List<String> status = new ArrayList<>(2);
         int code = 200;
         String statusMessage = "";
         String setMessageString;
         if (channel != null && !channelExists(channel)) {
+            // Checking if the given channel exists
             code = 400;
             statusMessage = "channel with name " + channel + " doesn't exist";
             status.add(0, String.valueOf(code));
@@ -348,24 +374,28 @@ public class ChatDatabase {
             return status;
         } else if (channel == null) {
             if (message.getLocation() != null) {
+                // Handling a message without a channel and with a location
                 setMessageString = "insert into chat (username,nickname,usermessage,datetime,location,temperature) VALUES('"
                         + username.replace("'", "''") + "','" + message.getNick().replace("'", "''") + "','"
                         + message.getMessage().replace("'", "''") + "','" + message.dateAsInt() + "','"
                         + message.getLocation().replace("'", "''") + "','" + message.getTemperature().replace("'", "''")
                         + "')";
             } else {
+                // Handling a message without a channel and without a location
                 setMessageString = "insert into chat (username,nickname,usermessage,datetime) VALUES('"
                         + username.replace("'", "''") + "','" + message.getNick().replace("'", "''") + "','"
                         + message.getMessage().replace("'", "''") + "','" + message.dateAsInt() + "')";
             }
         } else {
             if (message.getLocation() != null) {
+                // Handling a message with a channel and without a location
                 setMessageString = "insert into chat (username,nickname,usermessage,datetime,channel,location,temperature) VALUES('"
                         + username.replace("'", "''") + "','" + message.getNick().replace("'", "''") + "','"
                         + message.getMessage().replace("'", "''") + "','" + message.dateAsInt() + "','"
                         + channel.replace("'", "''") + "','" + message.getLocation().replace("'", "''") + "','"
                         + message.getTemperature().replace("'", "''") + "')";
             } else {
+                // Handling a message with a channel and with a location
                 setMessageString = "insert into chat (username,nickname,usermessage,datetime,channel) VALUES('"
                         + username.replace("'", "''") + "','" + message.getNick().replace("'", "''") + "','"
                         + message.getMessage().replace("'", "''") + "','" + message.dateAsInt() + "','"
@@ -388,62 +418,71 @@ public class ChatDatabase {
     /*
      * editMessage method edits a previously saved message in the database
      */
-    public List<String> editMessage(ChatMessage message, int messageid, String channel, String username)
+    public List<String> editMessage(ChatMessage message, int messageId, String channel, String username)
             throws SQLException {
+        // The list status is used to deliver status codes and status messages
         List<String> status = new ArrayList<>(2);
         int code = 200;
         String statusMessage = "";
         String editMessageString;
-        List<String> oldmessage = checkMessage(messageid);
+        List<String> oldMessage = checkMessage(messageId);
         // added these statements as otherwise vscode complains about duplication of the
         // strings in them
-        String updatestatement = "UPDATE chat SET nickname = '";
-        String wherestatement = "' WHERE id = '";
+        String updateStatement = "UPDATE chat SET nickname = '";
+        String whereStatement = "' WHERE id = '";
         if (channel != null && !channelExists(channel)) {
+            // Checking if the given channel exists
             code = 400;
             statusMessage = "channel (" + channel + ") doesn't exist";
             status.add(0, String.valueOf(code));
             status.add(1, statusMessage);
             return status;
-        } else if (oldmessage.get(0) != null && !oldmessage.get(0).equals(username)) {
+        } else if (oldMessage.get(0) != null && !oldMessage.get(0).equals(username)) {
+            // Checking if the message being edited belongs to the user trying to edit it
             code = 403;
             statusMessage = "User cannot edit other users messages";
             status.add(0, String.valueOf(code));
             status.add(1, statusMessage);
             return status;
-        } else if (oldmessage.get(1) != null && oldmessage.get(1).equals("<deleted>")) {
+        } else if (oldMessage.get(1) != null && oldMessage.get(1).equals("<deleted>")) {
+            // Checking if the message has been deleted
             code = 403;
             statusMessage = "Messages that have been deleted cannot be edited.";
             status.add(0, String.valueOf(code));
             status.add(1, statusMessage);
             return status;
-        } else if (channel == null && oldmessage.get(2) != null) {
+        } else if (channel == null && oldMessage.get(2) != null) {
+            // Checking if the message is without a channel
             code = 400;
-            statusMessage = "Message (" + messageid + ") was not found. It might be located on a channel";
+            statusMessage = "Message (" + messageId + ") was not found. It might be located on a channel";
             status.add(0, String.valueOf(code));
             status.add(1, statusMessage);
             return status;
-        } else if (channel != null && oldmessage.get(2) != null && !oldmessage.get(2).equals(channel)) {
+        } else if (channel != null && oldMessage.get(2) != null && !oldMessage.get(2).equals(channel)) {
+            // Checking if the message is on the given channel
             code = 400;
-            statusMessage = "There is no message (" + messageid + ") on channel: " + channel;
+            statusMessage = "There is no message (" + messageId + ") on channel: " + channel;
             status.add(0, String.valueOf(code));
             status.add(1, statusMessage);
             return status;
-        } else if (channel != null && oldmessage.get(2) == null) {
+        } else if (channel != null && oldMessage.get(2) == null) {
+            // Checking if the message is on the given channel
             code = 400;
-            statusMessage = "Message: " + messageid + " was not found. It might not be located on a channel";
+            statusMessage = "Message: " + messageId + " was not found. It might not be located on a channel";
             status.add(0, String.valueOf(code));
             status.add(1, statusMessage);
             return status;
         } else if (message.getLocation() != null) {
-            editMessageString = updatestatement + message.getNick().replace("'", "''") + "', usermessage = '"
+            // Editing a message if a location was given
+            editMessageString = updateStatement + message.getNick().replace("'", "''") + "', usermessage = '"
                     + message.getMessage().replace("'", "''") + "<edited>', datetime = '" + message.dateAsInt()
                     + "', location = '" + message.getLocation().replace("'", "''") + "', temperature = '"
-                    + message.getTemperature().replace("'", "''") + wherestatement + messageid + "'";
+                    + message.getTemperature().replace("'", "''") + whereStatement + messageId + "'";
         } else {
-            editMessageString = updatestatement + message.getNick().replace("'", "''") + "', usermessage = '"
+            // Editing a message if no location was given
+            editMessageString = updateStatement + message.getNick().replace("'", "''") + "', usermessage = '"
                     + message.getMessage().replace("'", "''") + "<edited>', datetime = '" + message.dateAsInt()
-                    + wherestatement + messageid + "'";
+                    + whereStatement + messageId + "'";
         }
         try (Statement createStatement = dbConnection.createStatement()) {
             createStatement.executeUpdate(editMessageString);
@@ -461,14 +500,16 @@ public class ChatDatabase {
     /*
      * deleteMessage method deletes a previously saved message
      */
-    public List<String> deleteMessage(ChatMessage message, int messageid, String channel, String username)
+    public List<String> deleteMessage(ChatMessage message, int messageId, String channel, String username)
             throws SQLException {
+        // The list status is used to deliver status codes and status messages
         List<String> status = new ArrayList<>(2);
         int code = 200;
         String statusMessage = "";
         String editMessageString;
-        List<String> oldmessage = checkMessage(messageid);
+        List<String> oldmessage = checkMessage(messageId);
         if (channel != null && !channelExists(channel)) {
+            // Checking if the given channel exists
             code = 400;
             statusMessage = "channel (" + channel + ") doesn't exist";
             status.add(0, String.valueOf(code));
@@ -483,20 +524,23 @@ public class ChatDatabase {
             status.add(1, statusMessage);
             return status;
         } else if (channel == null && oldmessage.get(2) != null) {
+            // Checking if the message is without a channel
             code = 400;
-            statusMessage = "Message (" + messageid + ") was not found. It might be located on a channel";
+            statusMessage = "Message (" + messageId + ") was not found. It might be located on a channel";
             status.add(0, String.valueOf(code));
             status.add(1, statusMessage);
             return status;
         } else if (channel != null && oldmessage.get(2) != null && !oldmessage.get(2).equals(channel)) {
+            // Checking if the message is on the given channel
             code = 400;
-            statusMessage = "There is no message (" + messageid + ") on channel: " + channel;
+            statusMessage = "There is no message (" + messageId + ") on channel: " + channel;
             status.add(0, String.valueOf(code));
             status.add(1, statusMessage);
             return status;
         } else if (channel != null && oldmessage.get(2) == null) {
+            // Checking if the message is on the given channel
             code = 400;
-            statusMessage = "Message: " + messageid + " was not found. It might not be located on a channel";
+            statusMessage = "Message: " + messageId + " was not found. It might not be located on a channel";
             status.add(0, String.valueOf(code));
             status.add(1, statusMessage);
             return status;
@@ -505,7 +549,7 @@ public class ChatDatabase {
             // null leaving only data on who and when
             editMessageString = "UPDATE chat SET nickname = '" + message.getNick().replace("'", "''")
                     + "', usermessage = '<deleted>', datetime = '" + message.dateAsInt()
-                    + "', location = NULL, temperature = NULL WHERE id = '" + messageid + "'";
+                    + "', location = NULL, temperature = NULL WHERE id = '" + messageId + "'";
         }
         try (Statement createStatement = dbConnection.createStatement()) {
             createStatement.executeUpdate(editMessageString);
@@ -534,16 +578,20 @@ public class ChatDatabase {
             return messages;
         } else if (channel == null) {
             if (since == -1) {
+                // Handling the case where there is no channel and no time
                 getMessagesString = "select id, nickname, usermessage, datetime, location, temperature from (select id, nickname, usermessage, datetime, location, temperature from chat where channel IS NULL order by datetime DESC limit 100) order by datetime ASC";
             } else {
+                // Handling the case where there is no channel but a time is given
                 getMessagesString = "select id, nickname, usermessage, datetime, location, temperature from chat where channel IS NULL AND datetime > "
                         + since + " order by datetime ASC";
             }
         } else {
             if (since == -1) {
+                // Handling the case where a channel is given but no time is given
                 getMessagesString = "select id, nickname, usermessage, datetime, location, temperature from (select id, nickname, usermessage, datetime, location, temperature from chat where channel = '"
                         + channel.replace("'", "''") + "' order by datetime DESC limit 100) order by datetime ASC";
             } else {
+                // Handling the case where a channel and a time are given
                 getMessagesString = "select id, nickname, usermessage, datetime, location, temperature from chat where channel = '"
                         + channel.replace("'", "''") + "' AND datetime > " + since + " order by datetime ASC";
             }
@@ -558,7 +606,8 @@ public class ChatDatabase {
 
             while (rs.next()) {
                 nickname = rs.getString("nickname");
-                // Here we add the message id number to the start of the message
+                // Here we add the message id number to the start of the message to act as an
+                // identifier the user can see
                 message = "(" + rs.getInt("id") + ") " + rs.getString("usermessage");
                 sent = null;
                 location = rs.getString("location");
@@ -576,11 +625,13 @@ public class ChatDatabase {
     }
 
     /*
-     * checkMessage method retrieves the username and message from an entry with
-     * given id number
+     * checkMessage method retrieves the username, message and channel from an entry
+     * with given id number
      */
     public List<String> checkMessage(int messageid) throws SQLException {
         List<String> messageInfo = new ArrayList<>(3);
+        // Selecting username(not nickname), usermessage and channel from the message
+        // with the given id number
         String getMessagesString = "select username, usermessage, channel from chat where id = " + messageid;
         String username = null;
         String message = null;
@@ -608,11 +659,13 @@ public class ChatDatabase {
      * updateMessages method updates an users new username into old messages so they
      * can still be recognized as that users messages.
      */
-    public boolean updateMessages(String oldusername, String newusername) throws SQLException {
+    public boolean updateMessages(String oldUsername, String newUsername) throws SQLException {
         boolean success = false;
         String editMessageString;
-        editMessageString = "UPDATE chat SET username = '" + newusername.replace("'", "''") + "' WHERE username = '"
-                + oldusername.replace("'", "''") + "'";
+        // Selecting all messages by given user and updating their username(not
+        // nickname)
+        editMessageString = "UPDATE chat SET username = '" + newUsername.replace("'", "''") + "' WHERE username = '"
+                + oldUsername.replace("'", "''") + "'";
 
         try (Statement createStatement = dbConnection.createStatement()) {
             createStatement.executeUpdate(editMessageString);
@@ -623,16 +676,21 @@ public class ChatDatabase {
         return success;
     }
 
+    // Methods for the channel table
+
     /*
      * createChannel method creates a new chat channel
      */
     public List<String> createChannel(String channel) throws SQLException {
+        // The list status is used to deliver status codes and status messages
         List<String> status = new ArrayList<>(2);
         int code = 200;
         String statusMessage = "";
 
         if (!channelExists(channel)) {
+            // Checking if the channel already exists
             String setChannel = "insert into channel VALUES('" + channel.replace("'", "''") + "')";
+            // Adding the given channel to the table channel
             try (Statement createStatement = dbConnection.createStatement()) {
                 createStatement.executeUpdate(setChannel);
                 statusMessage = "Channel " + channel + " successfully created";
@@ -658,6 +716,7 @@ public class ChatDatabase {
      */
     public boolean channelExists(String channel) throws SQLException {
         String tableExists;
+        // selecting channel with the given name from the channel table
         tableExists = "SELECT channelname FROM channel WHERE channelname = '" + channel.replace("'", "''") + "'";
         boolean exists = false;
         try (Statement queryStatement = dbConnection.createStatement()) {
@@ -673,6 +732,7 @@ public class ChatDatabase {
      * getChannels method gets a list of all the channels
      */
     public List<String> getChannels() throws SQLException {
+        // Selecting all channels from the channel table
         String getChannelString = "SELECT channelname FROM channel";
         ArrayList<String> channelList = new ArrayList<>();
         String channel = null;

@@ -21,6 +21,10 @@ import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
+/*
+ * ChannelHandler class is the handler for channel administration
+ */
+
 public class ChannelHandler implements HttpHandler {
     @Override
     public void handle(HttpExchange exchange) throws IOException {
@@ -71,10 +75,13 @@ public class ChannelHandler implements HttpHandler {
     private List<String> handleChannelCreation(HttpExchange exchange) throws JSONException, NumberFormatException,
             IndexOutOfBoundsException, IOException, DateTimeParseException, SQLException {
         // Handle POST requests (client want's to create a new channel)
+        // The list status is used to deliver status codes and status messages
         List<String> status = new ArrayList<>(2);
         int code;
         String statusMessage = "";
         Headers headers = exchange.getRequestHeaders();
+        // Checking that content type and content lenght have been given and that
+        // content type is application/json
         int contentLength = 0;
         String contentType = "";
         String cType = "Content-Type";
@@ -104,9 +111,10 @@ public class ChannelHandler implements HttpHandler {
             input.close();
             // Creating a JSONObject from user input
             JSONObject channelMsg = new JSONObject(text);
+            // Getting data out of the created JSONObject
             cType = "channel";
             String channel = hasContentString(channelMsg, cType);
-            // Cheking if the string channel is empty or null before using it to create a
+            // Checking if the string channel is empty or null before using it to create a
             // channel
             if (channel != null && !channel.isBlank()) {
                 status = ChatDatabase.getInstance().createChannel(channel);
@@ -136,12 +144,15 @@ public class ChannelHandler implements HttpHandler {
     private List<String> handleGetRequestFromClient(HttpExchange exchange)
             throws IOException, IllegalArgumentException, DateTimeException, JSONException, SQLException {
         // Handle GET request (client wants to see what channels exist)
+        // The list status is used to deliver status codes and status messages
         List<String> status = new ArrayList<>(2);
         int code = 200;
         String statusMessage = "";
         List<String> channelList = null;
+        // Getting alist of all the channels from the database
         channelList = ChatDatabase.getInstance().getChannels();
         if (channelList == null || channelList.isEmpty()) {
+            // Checking if the channel list is empty
             code = 204;
             statusMessage = "There are no additional channels";
             exchange.sendResponseHeaders(code, -1);
@@ -150,15 +161,17 @@ public class ChannelHandler implements HttpHandler {
             status.add(1, statusMessage);
             return status;
         }
+        // Turning the channel list into JSONObjects and then a JSONArray and delivering
+        // it to the client
         statusMessage = "Delivering a list of channels to a client";
         JSONArray responseChannels = new JSONArray();
         for (String channel : channelList) {
-            JSONObject jsonmessage = new JSONObject();
-            jsonmessage.put("channel", channel);
-            responseChannels.put(jsonmessage);
+            JSONObject jsonMessage = new JSONObject();
+            jsonMessage.put("channel", channel);
+            responseChannels.put(jsonMessage);
         }
-        String channelsstr = responseChannels.toString();
-        byte[] bytes = channelsstr.getBytes(StandardCharsets.UTF_8);
+        String channelsStr = responseChannels.toString();
+        byte[] bytes = channelsStr.getBytes(StandardCharsets.UTF_8);
         exchange.sendResponseHeaders(code, bytes.length);
         OutputStream stream = exchange.getResponseBody();
         stream.write(bytes);

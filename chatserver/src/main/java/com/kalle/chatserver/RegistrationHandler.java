@@ -75,10 +75,13 @@ public class RegistrationHandler implements HttpHandler {
     private List<String> handleUserRegistrationFromClient(HttpExchange exchange)
             throws NumberFormatException, IndexOutOfBoundsException, IOException, JSONException, SQLException {
         // Handle POST requests (client sent new username and password)
+        // The list status is used to deliver status codes and status messages
         List<String> status = new ArrayList<>(2);
         int code;
         String statusMessage = "";
         Headers headers = exchange.getRequestHeaders();
+        // Checking that content type and content lenght have been given and that
+        // content type is application/json
         int contentLength = 0;
         String contentType = "";
         String cType = "Content-Type";
@@ -105,6 +108,7 @@ public class RegistrationHandler implements HttpHandler {
             String text = new BufferedReader(new InputStreamReader(input, StandardCharsets.UTF_8)).lines()
                     .collect(Collectors.joining("\n"));
             input.close();
+            // Sending user input to processUser method
             status = processUser(exchange, text);
             code = Integer.parseInt(status.get(0));
             statusMessage = status.get(1);
@@ -125,22 +129,26 @@ public class RegistrationHandler implements HttpHandler {
      */
     private List<String> processUser(HttpExchange exchange, String text)
             throws JSONException, IOException, SQLException {
+        // The list status is used to deliver status codes and status messages
         List<String> status = new ArrayList<>(2);
         int code;
         String statusMessage = "";
         // Adding the username and password to known users
         // creating a JSONObject from the user input
         JSONObject registrationMsg = new JSONObject(text);
-        // Cheking if any of the user inputs fields was empty
+        // Getting data out of the created JSONObject
         String cType = "username";
         String username = hasContentString(registrationMsg, cType);
         cType = "password";
         String password = hasContentString(registrationMsg, cType);
         cType = "email";
         String email = hasContentString(registrationMsg, cType);
+        // Checking if any of the user inputs fields was empty
         if (username != null && !username.isBlank() && password != null && !password.isBlank() && email != null
                 && !email.isBlank()) {
+            // Creating an user object from user input
             User user = new User(username, password, email);
+            // Sending user object to authenticators addUser method
             status = auth.addUser(user);
             code = Integer.parseInt(status.get(0));
             statusMessage = status.get(1);

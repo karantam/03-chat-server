@@ -19,6 +19,10 @@ import com.sun.net.httpserver.HttpHandler;
 import org.json.JSONException;
 import org.json.JSONObject;
 
+/*
+ * AdministrationHandler class is the handler for user administration
+ */
+
 public class AdministrationHandler implements HttpHandler {
     @Override
     public void handle(HttpExchange exchange) throws IOException {
@@ -63,11 +67,14 @@ public class AdministrationHandler implements HttpHandler {
      */
     private List<String> handleAdministrationRequest(HttpExchange exchange) throws JSONException, NumberFormatException,
             IndexOutOfBoundsException, IOException, DateTimeParseException, SQLException {
-        // Handle POST requests (client want's to edits or deletes an user)
+        // Handle POST requests (client want's to edit or delete an user)
+        // The list status is used to deliver status codes and status messages
         List<String> status = new ArrayList<>(2);
         int code;
         String statusMessage = "";
         Headers headers = exchange.getRequestHeaders();
+        // Checking that content type and content lenght have been given and that
+        // content type is application/json
         int contentLength = 0;
         String contentType = "";
         String cType = "Content-Type";
@@ -98,6 +105,7 @@ public class AdministrationHandler implements HttpHandler {
             // Creating a JSONObject from user input
             JSONObject administrationMsg = new JSONObject(text);
 
+            // Getting data out of the created JSONObject
             cType = "user";
             String username = hasContentString(administrationMsg, cType);
 
@@ -109,8 +117,9 @@ public class AdministrationHandler implements HttpHandler {
 
             // Getting username from authentication header
             String adminName = exchange.getPrincipal().getUsername();
-            // Cheking if the string username or action is empty
+            // Checking if the string username or action is empty
             if (!username.isBlank() && !action.isBlank()) {
+                // Sending the given data to processAction method
                 status = processAction(username, action, userDetails, adminName);
                 code = Integer.parseInt(status.get(0));
                 statusMessage = status.get(1);
@@ -132,13 +141,19 @@ public class AdministrationHandler implements HttpHandler {
         return status;
     }
 
+    /*
+     * processAction method checks what action the user wants to do and that the
+     * data needed for that action has been given
+     */
     private List<String> processAction(String username, String action, JSONObject userDetails, String adminName)
             throws SQLException {
+        // The list status is used to deliver status codes and status messages
         List<String> status = new ArrayList<>(2);
         int code;
         String statusMessage = "";
 
         if (action.equals("edit")) {
+            // Editing an user
             String newUsername = null;
             String newPassword = null;
             String newEmail = null;
@@ -153,6 +168,7 @@ public class AdministrationHandler implements HttpHandler {
                 cType = "role";
                 newRole = hasContentString(userDetails, cType);
                 if (newUsername.length() < 3 || newPassword.length() < 5 || !newEmail.contains("@")) {
+                    // Checking if the given user details are of a valid form
                     code = 400;
                     statusMessage = "Name must be at least three characters long, password must be at least five characters long and email must be a valid email address";
                     status.add(0, String.valueOf(code));
@@ -176,6 +192,7 @@ public class AdministrationHandler implements HttpHandler {
             status = ChatDatabase.getInstance().editUser(newUserDetails, username, newRole, adminName);
             return status;
         } else if (action.equals("remove")) {
+            // Deleting an user
             status = ChatDatabase.getInstance().deleteUser(username, adminName);
             return status;
         } else {
@@ -187,6 +204,10 @@ public class AdministrationHandler implements HttpHandler {
         return status;
     }
 
+    /*
+     * hasContentString method checks if JSONObject contains a key and if it does
+     * retrieves the string matching it
+     */
     private String hasContentString(JSONObject object, String content) {
         String value = "";
         if (object.has(content)) {
@@ -195,6 +216,10 @@ public class AdministrationHandler implements HttpHandler {
         return value;
     }
 
+    /*
+     * hasContentJSON method checks if JSONObject contains a key and if it does
+     * retrieves the JSONObject matching it
+     */
     private JSONObject hasContentJSON(JSONObject object, String content) {
         JSONObject value = null;
         if (object.has(content)) {

@@ -11,6 +11,7 @@ import com.sun.net.httpserver.BasicAuthenticator;
  */
 public class ChatAuthenticator extends BasicAuthenticator {
 
+    // Setting minimum values for username and password
     private static final int MINNAME = 2;
     private static final int MINPASS = 5;
 
@@ -22,6 +23,8 @@ public class ChatAuthenticator extends BasicAuthenticator {
     public boolean checkCredentials(String username, String password) {
         Boolean value = false;
         try {
+            // Calling the database to check if the given username and password match ones
+            // stored in the database
             value = ChatDatabase.getInstance().checkUser(username, password);
         } catch (SQLException e) {
             ChatServer.log("ERROR: SQLException while authenticating user");
@@ -33,18 +36,21 @@ public class ChatAuthenticator extends BasicAuthenticator {
      * addUser method adds a new valid user
      */
     public List<String> addUser(User user) throws SQLException {
+        // The list status is used to deliver status codes and status messages
         List<String> status = new ArrayList<>(2);
         int code = 200;
         String statusMessage = "";
         Boolean add = false;
         // adding new users
         if (user.getUsername().length() < MINNAME) {
+            // Checking if username is long enough
             code = 400;
             statusMessage = "Name must be at least three characters long";
             status.add(0, String.valueOf(code));
             status.add(1, statusMessage);
             return status;
         } else if (user.getPassword().length() < MINPASS) {
+            // Checking if password is long enough
             code = 400;
             statusMessage = "Password must be at least five characters long";
             status.add(0, String.valueOf(code));
@@ -52,6 +58,7 @@ public class ChatAuthenticator extends BasicAuthenticator {
             return status;
 
         } else if (!user.getEmail().contains("@")) {
+            // Checking if email is valid in this case if it contains the @ character
             code = 400;
             statusMessage = "Invalid email address";
             status.add(0, String.valueOf(code));
@@ -60,6 +67,7 @@ public class ChatAuthenticator extends BasicAuthenticator {
 
         }
         try {
+            // Calling the database to save user information there
             add = ChatDatabase.getInstance().setUser(user);
             if (Boolean.TRUE.equals(add)) {
                 statusMessage = "New user has been registered";

@@ -104,7 +104,6 @@ public class ChatServer {
             throws KeyStoreException, NoSuchAlgorithmException, CertificateException, IOException,
             UnrecoverableKeyException, KeyManagementException {
         // creating SSLContext function
-        // Old pass word "G8daUFSd9fhs35y4shJUh5fsnu6ubrT"
         char[] passphrase = keystorePassword.toCharArray();
         KeyStore ks = KeyStore.getInstance("JKS");
         // Opening the certificate at given location

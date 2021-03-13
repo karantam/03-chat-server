@@ -87,10 +87,13 @@ public class ChatHandler implements HttpHandler {
             IndexOutOfBoundsException, IOException, DateTimeParseException, SQLException {
         // Handle POST requests (client sent a new chat message or wants to edit or
         // delete an old message)
+        // The list status is used to deliver status codes and status messages
         List<String> status = new ArrayList<>(2);
         int code;
         String statusMessage = "";
         Headers headers = exchange.getRequestHeaders();
+        // Checking that content type and content lenght have been given and that
+        // content type is application/json
         int contentLength = 0;
         String contentType = "";
         String cType = "Content-Type";
@@ -120,9 +123,10 @@ public class ChatHandler implements HttpHandler {
             input.close();
             // Creating a JSONObject from user input
             JSONObject chatMsg = new JSONObject(text);
+            // Getting data out of the created JSONObject
             cType = "user";
             String nickname = hasContentString(chatMsg, cType);
-            // Cheking if the JSONObject has a message entry as a deletemessage type action
+            // Checking if the JSONObject has a message entry as a deletemessage type action
             // doesn't need it so it might not exist
             cType = "message";
             String message = hasContentString(chatMsg, cType);
@@ -136,13 +140,12 @@ public class ChatHandler implements HttpHandler {
 
             // Implementing modifying of sent messages (if JSONObject has action entry it is
             // used otherwise default is an empty string which does nothing) and if
-            // JSONObject
-            // has messageid entry it is used otherwise default is 0
+            // JSONObject has messageid entry it is used otherwise default is 0
 
             cType = "action";
             String action = hasContentString(chatMsg, cType);
             // The String action causes problems if it is null so we change it to an empty
-            // string n that case
+            // string in that case
             if (action == null) {
                 action = "";
             }
@@ -161,6 +164,7 @@ public class ChatHandler implements HttpHandler {
 
             String temperature = "";
             if (location != null) {
+                // Getting temperature is a location is given
                 temperature = getWeather(location, sent);
             }
             if (temperature.equals("Invalid location")) {
@@ -172,6 +176,7 @@ public class ChatHandler implements HttpHandler {
             }
             // Creating a chatmessage out of user input
             ChatMessage chatmessage = new ChatMessage(sent, nickname, message, location, temperature);
+            // Sending the given data to processMessage method
             status = processMessage(chatmessage, channel, action, messageid, username);
             code = Integer.parseInt(status.get(0));
             statusMessage = status.get(1);
@@ -193,21 +198,25 @@ public class ChatHandler implements HttpHandler {
      * and based on action string edits a message, deletes a message or saves a
      * message into the database
      */
-    private List<String> processMessage(ChatMessage chatmessage, String channel, String action, int messageid,
+    private List<String> processMessage(ChatMessage chatMessage, String channel, String action, int messageId,
             String username) throws SQLException {
+        // The list status is used to deliver status codes and status messages
         List<String> status = new ArrayList<>(2);
         int code;
         String statusMessage = "";
         // Determining what to do base on action String and message String
         if (action.equals("deletemessage")) {
-            status = ChatDatabase.getInstance().deleteMessage(chatmessage, messageid, channel, username);
+            // Deleting a message
+            status = ChatDatabase.getInstance().deleteMessage(chatMessage, messageId, channel, username);
             code = Integer.parseInt(status.get(0));
             statusMessage = status.get(1);
-        } else if (chatmessage.getMessage() == null || chatmessage.getMessage().isBlank()) {
+        } else if (chatMessage.getMessage() == null || chatMessage.getMessage().isBlank()) {
+            // Checking if the message entry is empty
             code = 400;
             statusMessage = "Message was empty";
         } else if (action.equals("editmessage")) {
-            status = ChatDatabase.getInstance().editMessage(chatmessage, messageid, channel, username);
+            // Editing a message
+            status = ChatDatabase.getInstance().editMessage(chatMessage, messageId, channel, username);
             code = Integer.parseInt(status.get(0));
             statusMessage = status.get(1);
         } else if (!action.equals("") && !action.equals("deletemessage") && !action.equals("editmessage")) {
@@ -215,7 +224,8 @@ public class ChatHandler implements HttpHandler {
             code = 400;
             statusMessage = "Invalid action";
         } else {
-            status = ChatDatabase.getInstance().setMessage(chatmessage, channel, username);
+            // Saving a message into the database
+            status = ChatDatabase.getInstance().setMessage(chatMessage, channel, username);
             code = Integer.parseInt(status.get(0));
             statusMessage = status.get(1);
         }
@@ -233,6 +243,7 @@ public class ChatHandler implements HttpHandler {
     private List<String> handleGetRequestFromClient(HttpExchange exchange)
             throws IOException, IllegalArgumentException, DateTimeException, JSONException, SQLException {
         // Handle GET request (client wants to see all messages)
+        // The list status is used to deliver status codes and status messages
         List<String> status = new ArrayList<>(2);
         int code = 200;
         String statusMessage = "";
@@ -242,14 +253,14 @@ public class ChatHandler implements HttpHandler {
         DateTimeFormatter formatterLast = DateTimeFormatter.ofPattern("EEE, dd MMM yyyy HH:mm:ss.SSS z", Locale.ENGLISH)
                 .withZone(ZoneId.of("GMT"));
         long messagesSince = -1;
-        // Cheking if the headers contain If-Modified-Since header
+        // Checking if the headers contain If-Modified-Since header
         if (headers.containsKey(cType)) {
             String ifModified = headers.get("If-Modified-Since").get(0);
             ZonedDateTime zonedifModified = ZonedDateTime.parse(ifModified, formatterLast);
             LocalDateTime fromWhichDate = zonedifModified.toLocalDateTime();
             messagesSince = fromWhichDate.toInstant(ZoneOffset.UTC).toEpochMilli();
         }
-        // implementing channels (As there is no message body channel name is given in
+        // Implementing channels (As there is no message body channel name is given in
         // headers)
         String channel = null;
         cType = "channel";
@@ -258,12 +269,14 @@ public class ChatHandler implements HttpHandler {
         }
         messages = ChatDatabase.getInstance().getMessages(messagesSince, channel);
         if (messages == null) {
+            // Checking if the given channel exists
             code = 400;
             statusMessage = "channel with name " + channel + " doesn't exist";
             status.add(0, String.valueOf(code));
             status.add(1, statusMessage);
             return status;
         } else if (messages.isEmpty()) {
+            // Checking if there are no messages to deliver
             code = 204;
             statusMessage = "There are no new messages to deliver";
             exchange.sendResponseHeaders(code, -1);
@@ -272,13 +285,15 @@ public class ChatHandler implements HttpHandler {
             status.add(1, statusMessage);
             return status;
         }
+        // Turning the message list into JSONObjects and then a JSONArray and delivering
+        // it to the client
         statusMessage = "Delivering " + messages.size() + " messages to client";
         JSONArray responseMessages = new JSONArray();
         DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss.SSSX");
         LocalDateTime newest = null;
-        for (ChatMessage chatmessage : messages) {
-            JSONObject jsonmessage = new JSONObject();
-            LocalDateTime date = chatmessage.getSent();
+        for (ChatMessage chatMessage : messages) {
+            JSONObject jsonMessage = new JSONObject();
+            LocalDateTime date = chatMessage.getSent();
             // Messages we get from the database should be ordered by the sending time so
             // only getting the sent time from the last message on the list could also work
             if (newest == null || newest.isBefore(date)) {
@@ -286,20 +301,21 @@ public class ChatHandler implements HttpHandler {
             }
             ZonedDateTime toSend = ZonedDateTime.of(date, ZoneId.of("UTC"));
             String dateText = toSend.format(formatter);
-            jsonmessage.put("sent", dateText);
-            jsonmessage.put("user", chatmessage.getNick());
-            jsonmessage.put("message", chatmessage.getMessage());
-            jsonmessage.put("location", chatmessage.getLocation());
-            jsonmessage.put("temperature", chatmessage.getTemperature());
-            responseMessages.put(jsonmessage);
+            jsonMessage.put("sent", dateText);
+            jsonMessage.put("user", chatMessage.getNick());
+            jsonMessage.put("message", chatMessage.getMessage());
+            jsonMessage.put("location", chatMessage.getLocation());
+            jsonMessage.put("temperature", chatMessage.getTemperature());
+            responseMessages.put(jsonMessage);
         }
         if (newest != null) {
+            // Delivering the Last-Modified time to client using headers
             String lastModified = newest.format(formatterLast);
             Headers headers2 = exchange.getResponseHeaders();
             headers2.add("Last-Modified", lastModified);
         }
-        String messagesstr = responseMessages.toString();
-        byte[] bytes = messagesstr.getBytes(StandardCharsets.UTF_8);
+        String messagesStr = responseMessages.toString();
+        byte[] bytes = messagesStr.getBytes(StandardCharsets.UTF_8);
         exchange.sendResponseHeaders(code, bytes.length);
         OutputStream stream = exchange.getResponseBody();
         stream.write(bytes);
@@ -324,6 +340,7 @@ public class ChatHandler implements HttpHandler {
         // the location and the time when the data was collected
         String starttime = senttime.minusHours(3).format(formatter);
         String endtime = senttime.format(formatter);
+        // Forming the url used to query data from ilmatieteenlaitos based on user input
         String address = "https://opendata.fmi.fi/wfs/fin?service=WFS&version=2.0.0&request=getFeature&storedquery_id=fmi::observations::weather::simple&place="
                 + location + "&starttime=" + starttime + "&endtime=" + endtime + "&parameters=t2m&";
 

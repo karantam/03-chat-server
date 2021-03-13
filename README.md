@@ -16,7 +16,8 @@ User administration works by sending requests to /administration in the form
                     “email” : user.email@for-contacting.com”
     }
 }
-Where user is the user being edited/removed. In the case of removing an user userdetails aren't needed
+Where user is the user being edited/removed. In the case of removing an user userdetails aren't needed.
+The first user to register is automatically an admin and all users created after the first are normal users
 
 Weather information works by adding location entry to a normal chat message
 {

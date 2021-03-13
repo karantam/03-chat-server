@@ -430,14 +430,21 @@ public class ChatDatabase {
         // strings in them
         String updateStatement = "UPDATE chat SET nickname = '";
         String whereStatement = "' WHERE id = '";
-        if (channel != null && !channelExists(channel)) {
+        if (oldMessage.get(0) == null ) {
+            // Checking if the message exists
+            code = 400;
+            statusMessage = "That message doesn't exist";
+            status.add(0, String.valueOf(code));
+            status.add(1, statusMessage);
+            return status;
+        } else if (channel != null && !channelExists(channel)) {
             // Checking if the given channel exists
             code = 400;
             statusMessage = "channel (" + channel + ") doesn't exist";
             status.add(0, String.valueOf(code));
             status.add(1, statusMessage);
             return status;
-        } else if (oldMessage.get(0) != null && !oldMessage.get(0).equals(username)) {
+        } else if (!oldMessage.get(0).equals(username)) {
             // Checking if the message being edited belongs to the user trying to edit it
             code = 403;
             statusMessage = "User cannot edit other users messages";
@@ -507,15 +514,22 @@ public class ChatDatabase {
         int code = 200;
         String statusMessage = "";
         String editMessageString;
-        List<String> oldmessage = checkMessage(messageId);
-        if (channel != null && !channelExists(channel)) {
+        List<String> oldMessage = checkMessage(messageId);
+        if (oldMessage.get(0) == null ) {
+            // Checking if the message exists
+            code = 400;
+            statusMessage = "That message doesn't exist";
+            status.add(0, String.valueOf(code));
+            status.add(1, statusMessage);
+            return status;
+        } else if (channel != null && !channelExists(channel)) {
             // Checking if the given channel exists
             code = 400;
             statusMessage = "channel (" + channel + ") doesn't exist";
             status.add(0, String.valueOf(code));
             status.add(1, statusMessage);
             return status;
-        } else if (oldmessage.get(0) != null && !oldmessage.get(0).equals(username) && !isAdmin(username)) {
+        } else if (oldMessage.get(0) != null && !oldMessage.get(0).equals(username) && !isAdmin(username)) {
             // normal users can only delete their own messages
             // admins can delete other users messages
             code = 403;
@@ -523,21 +537,21 @@ public class ChatDatabase {
             status.add(0, String.valueOf(code));
             status.add(1, statusMessage);
             return status;
-        } else if (channel == null && oldmessage.get(2) != null) {
+        } else if (channel == null && oldMessage.get(2) != null) {
             // Checking if the message is without a channel
             code = 400;
             statusMessage = "Message (" + messageId + ") was not found. It might be located on a channel";
             status.add(0, String.valueOf(code));
             status.add(1, statusMessage);
             return status;
-        } else if (channel != null && oldmessage.get(2) != null && !oldmessage.get(2).equals(channel)) {
+        } else if (channel != null && oldMessage.get(2) != null && !oldMessage.get(2).equals(channel)) {
             // Checking if the message is on the given channel
             code = 400;
             statusMessage = "There is no message (" + messageId + ") on channel: " + channel;
             status.add(0, String.valueOf(code));
             status.add(1, statusMessage);
             return status;
-        } else if (channel != null && oldmessage.get(2) == null) {
+        } else if (channel != null && oldMessage.get(2) == null) {
             // Checking if the message is on the given channel
             code = 400;
             statusMessage = "Message: " + messageId + " was not found. It might not be located on a channel";

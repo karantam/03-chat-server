@@ -254,9 +254,9 @@ public class ChatDatabase {
             status.add(0, String.valueOf(code));
             status.add(1, statusMessage);
             return status;
-        } else if (getUser(newuser.getUsername()) != null
+        } else if (getUser(newuser.getUsername()).getUsername() != null
                 && !getUser(newuser.getUsername()).getUsername().equals(oldusername)) {
-            // Checking that the new username is not already in use and if it isn't the same
+            // Checking that the new username is not already in use unless it is the same
             // as the old username
             code = 403;
             statusMessage = "New user data is invalid";

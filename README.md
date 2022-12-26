@@ -1,6 +1,23 @@
-Name: Kalle Rantamaula
-Student number: 2187578
-Email address: Kalle.Rantamaula@student.oulu.fi
+Code for a simple chat server.
+
+The server API is based on HTTPS and JSON.
+
+Posting messages works by sending HTTP POST request to URL https://server.url/chat in the form 
+{
+		“user” : “nickname”,
+		“message” : “contents of the message”,
+		“sent” : “2020-12-21T07:57:47.123Z”
+} 
+and fetching messages from the server works by sending HTTP GET request to /chat.
+
+Registering a user works by sending a POST request to /registration in the form 
+{
+		“username” : “username”,
+		“password” : “password”,
+		“email” : “user.email@for-contacting.com”
+}
+
+Requests other than registration require authentication, which is done over HTTPS using the Authorization header (username:password).
 
 User administration, weather information, channels and modifying of messages have been implemented
 
